@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Panini Mundial 2026 – Mi Álbum Digital (992 cromos)</title>
-<meta name="description" content="Álbum digital interactivo con sincronización en la nube. Compara cromos con tu familia y encuentra los que te faltan.">
+<meta name="description" content="Álbum digital interactivo con sincronización en la nube. Compara cromos con tu familia.">
 <meta property="og:title" content="Panini Mundial 2026 – Mi Álbum Digital">
 <meta property="og:description" content="Colecciona los 992 cromos oficiales. Sincroniza tu progreso y comparte tu colección.">
 <meta property="og:type" content="website">
@@ -639,8 +639,9 @@ function render() {
 
       el.innerHTML = `<span class="sn">${s.id}</span>${s.foil ? '<span class="st">FOIL</span>' : s.isPhoto ? '<span class="st" style="background:linear-gradient(90deg,#3b82f6,#6366f1)">FOTO</span>' : ''}<span class="sl">${s.label}</span>`;
 
-      // NUEVO: un solo clic rota entre los 3 estados
-      el.addEventListener('click', () => {
+      // NUEVO: un solo clic rota entre los 3 estados y NO cierra el desplegable
+      el.addEventListener('click', (e) => {
+        e.stopPropagation(); // Evita que el clic cierre el acordeón
         if (!isViewingSelf) {
           if (st === 2 && mySt === 0) {
             toggleWish(s.id);

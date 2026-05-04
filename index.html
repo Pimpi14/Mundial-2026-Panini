@@ -239,7 +239,7 @@
 <script>
 // ================== CONFIGURACIÓN DE FIREBASE ================
 const firebaseConfig = {
-  apiKey: "AIzaSyCkuYvp2-e9tkWZYlzqXDdtBhQlTXkx2xU",
+  apiKey: "AIzaSyCkuYvp2-e9tkWZYLzqXDdtBhQlTXkx2xU",
   authDomain: "panini-mundial-2026-53d4c.firebaseapp.com",
   projectId: "panini-mundial-2026-53d4c",
   storageBucket: "panini-mundial-2026-53d4c.firebasestorage.app",
@@ -247,8 +247,7 @@ const firebaseConfig = {
   appId: "1:899949264065:web:8fc51d817a5eef7418e840"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
@@ -260,12 +259,11 @@ let state = {};
 let selfState = {};
 let linkedStates = {};
 let currentView = 'self';
-let compareWith = null; // código del álbum con el que comparar (para "Me faltan de él")
+let compareWith = null;
 let syncId = null;
 let unsubscribe = null;
 let isOnline = false;
 
-// ============ ESTADO LOCAL ============
 function loadLocal() {
   const saved = localStorage.getItem(KEY_LOCAL);
   if (saved) {
@@ -284,7 +282,6 @@ function set(id, v) {
   if (isOnline) pushToCloud();
 }
 
-// ============ SINCRONIZACIÓN ============
 async function initSync() {
   syncId = localStorage.getItem(SYNC_ID_KEY);
   if (!syncId) {
@@ -344,7 +341,6 @@ function setSyncStatus(online) {
   text.textContent = online ? 'Conectado' : 'Sin conexión';
 }
 
-// ============ VINCULAR / DESVINCULAR ============
 async function linkDevice() {
   const code = document.getElementById('linkCode').value.trim().toUpperCase();
   if (!code || code.length<4) { toast('⚠️ Código inválido'); return; }
@@ -358,9 +354,7 @@ async function linkDevice() {
   }
   await loadLinkedAlbum(code);
   updateViewSelector();
-  if (!compareWith) {
-    compareWith = code;
-  }
+  if (!compareWith) compareWith = code;
   updateMissingFromOtherButton();
 }
 
@@ -404,13 +398,11 @@ function updateViewSelector() {
     const exists = linkedStates[code] !== undefined;
     sel.innerHTML += `<option value="${code}">Álbum ${code} ${exists ? '' : '(sin datos)'}</option>`;
   });
-  // Reflejar currentView en el selector
   if (currentView === 'self') {
     sel.value = 'self';
   } else if (linkedStates[currentView]) {
     sel.value = currentView;
   }
-  // Botón quitar vinculación
   const btnUnlink = document.getElementById('btnUnlink');
   if (currentView !== 'self') {
     btnUnlink.style.display = 'inline-block';
@@ -421,7 +413,6 @@ function updateViewSelector() {
   updateMissingFromOtherButton();
 }
 
-// ============ CAMBIAR VISTA ============
 document.getElementById('viewSelect').addEventListener('change', function(e) {
   const val = e.target.value;
   if (val === 'self') {
@@ -430,7 +421,7 @@ document.getElementById('viewSelect').addEventListener('change', function(e) {
   } else {
     currentView = val;
     state = { ...(linkedStates[val] || {}) };
-    compareWith = val; // actualizar con quién comparar al cambiar de vista
+    compareWith = val;
   }
   updateViewSelector();
   render();
@@ -456,14 +447,9 @@ function updateMissingFromOtherButton() {
   const btn = document.getElementById('btnMissingFromOther');
   const hasLinked = Object.keys(linkedStates).length > 0;
   btn.disabled = !hasLinked;
-  if (!hasLinked) {
-    btn.title = 'Vincula otro álbum primero';
-  } else {
-    btn.title = '';
-  }
+  btn.title = hasLinked ? '' : 'Vincula otro álbum primero';
 }
 
-// PEDIR CROMO REPETIDO
 function toggleWish(id) {
   if (currentView === 'self') return;
   let wished = JSON.parse(localStorage.getItem('panini-wished')||'[]');
@@ -479,7 +465,6 @@ function toggleWish(id) {
   render();
 }
 
-// ============ MAPA DE BANDERAS ============
 const FLAGS = {
   'KOR':'kr','RSA':'za','MEX':'mx','CZE':'cz','CAN':'ca','BIH':'ba','QAT':'qa','SUI':'ch',
   'BRA':'br','MAR':'ma','HAI':'ht','SCO':'gb-sct','USA':'us','PAR':'py','AUS':'au','TUR':'tr',
@@ -490,7 +475,6 @@ const FLAGS = {
 };
 function getFlagUrl(code) { return `https://flagcdn.com/w40/${FLAGS[code] || code.toLowerCase()}.png`; }
 
-// ============ GENERADOR DE EQUIPOS ============
 function T(code, name, grupo, p1a11, p14a20) {
   const stickers = [{ id: code + '1', label: 'BADGE' }];
   p1a11.forEach((p, i) => stickers.push({ id: code + (i + 2), label: p.toUpperCase() }));
@@ -575,7 +559,6 @@ const ALBUM = [
 
 const TOTAL = ALBUM.reduce((a, t) => a + t.stickers.length, 0);
 
-// ============ RENDER ============
 let filter = 'all', expanded = false;
 
 function render() {
@@ -632,12 +615,10 @@ function render() {
         otherSt = get(s.id, linkedStates[compareWith]);
       }
       
-      // Filtro interchangeable: repetido del otro, yo no lo tengo
       if (filter === 'interchangeable') {
         if (isViewingSelf) return;
         if (!(st === 2 && mySt === 0)) return;
       }
-      // Filtro missingFromOther: el otro lo tiene (cualquier estado >=1) y yo no
       if (filter === 'missingFromOther') {
         if (!isViewingSelf) return;
         if (!(otherSt >= 1 && mySt === 0)) return;
@@ -652,7 +633,6 @@ function render() {
       if (st === 1) classes += ' owned';
       else if (st === 2) classes += ' rep';
       if (wished.includes(s.id)) classes += ' wished';
-      // Intercambiables en vista ajena o en missingFromOther
       if ((!isViewingSelf && st === 2 && mySt === 0) || (filter === 'missingFromOther' && otherSt >= 1 && mySt === 0)) {
         classes += ' interchangeable';
       }
@@ -726,7 +706,6 @@ function updateStats() {
   if (currentView !== 'self') updateMatchBadge();
 }
 
-// ============ EVENTOS ============
 document.querySelectorAll('.fb[data-f]').forEach(b => b.addEventListener('click', () => {
   filter = b.dataset.f;
   document.querySelectorAll('.fb[data-f]').forEach(x => x.classList.remove('on'));
@@ -734,50 +713,29 @@ document.querySelectorAll('.fb[data-f]').forEach(b => b.addEventListener('click'
   render();
 }));
 document.getElementById('btnMissingFromOther').addEventListener('click', () => {
-  if (!compareWith) {
-    toast('⚠️ No hay álbum vinculado para comparar');
-    return;
-  }
+  if (!compareWith) { toast('⚠️ No hay álbum vinculado'); return; }
   filter = 'missingFromOther';
   document.querySelectorAll('.fb[data-f]').forEach(x => x.classList.remove('on'));
   document.getElementById('btnMissingFromOther').classList.add('on');
   render();
 });
-document.getElementById('bex').addEventListener('click', () => {
-  expanded = !expanded;
-  document.getElementById('bex').textContent = expanded ? 'Colapsar todo' : 'Expandir todo';
-  render();
-});
-document.getElementById('brs').addEventListener('click', () => {
-  if (!confirm('¿Seguro que quieres borrar todo tu progreso?')) return;
-  selfState = {}; saveLocal(); state = {};
-  if (isOnline) pushToCloud();
-  render(); toast('🗑 Reiniciado');
-});
+document.getElementById('bex').addEventListener('click', () => { expanded = !expanded; document.getElementById('bex').textContent = expanded ? 'Colapsar todo' : 'Expandir todo'; render(); });
+document.getElementById('brs').addEventListener('click', () => { if(!confirm('¿Seguro?')) return; selfState = {}; saveLocal(); state = {}; if(isOnline) pushToCloud(); render(); toast('🗑 Reiniciado'); });
 document.getElementById('qi').addEventListener('input', render);
-document.getElementById('syncCode').addEventListener('click', () => {
-  navigator.clipboard.writeText(syncId); toast('📋 Código copiado');
-});
-document.getElementById('btnLink').addEventListener('click', () => {
-  document.getElementById('modalLink').style.display = 'flex';
-});
+document.getElementById('syncCode').addEventListener('click', () => { navigator.clipboard.writeText(syncId); toast('📋 Código copiado'); });
+document.getElementById('btnLink').addEventListener('click', () => { document.getElementById('modalLink').style.display = 'flex'; });
 
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-// ============ INICIO ============
 loadLocal();
 currentView = 'self';
 state = { ...selfState };
 
 (async () => {
   const linked = JSON.parse(localStorage.getItem(LINKED_KEY)||'[]');
-  for (let code of linked) {
-    await loadLinkedAlbum(code);
-  }
+  for (let code of linked) { await loadLinkedAlbum(code); }
   const keys = Object.keys(linkedStates);
-  if (keys.length > 0 && !compareWith) {
-    compareWith = keys[0];
-  }
+  if (keys.length > 0 && !compareWith) compareWith = keys[0];
   updateViewSelector();
   updateMissingFromOtherButton();
   render();

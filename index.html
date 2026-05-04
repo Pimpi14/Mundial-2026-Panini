@@ -215,11 +215,10 @@
 </div>
 
 <div class="leg">
-  <strong style="color:var(--text)">1 clic</strong> tengo/falta &nbsp;|&nbsp;
-  <strong style="color:var(--text)">2 clics</strong> repetido &nbsp;|&nbsp;
-  <span><span class="lb" style="background:#0d2e1a;border-color:#22c55e88"></span> Tengo</span>
+  <strong style="color:var(--text)">1 clic</strong> cambia: No tengo → Lo tengo → Repetido &nbsp;|&nbsp;
+  <span><span class="lb" style="background:#0d2e1a;border-color:#22c55e88"></span> Lo tengo</span>
   <span><span class="lb" style="background:#1a1f0d;border-color:#84cc1688"></span> Repetido</span>
-  <span><span class="lb" style="background:#0a2e1a;border:2px dashed #10b981;"></span> Intercambiable</span>
+  <span><span class="lb" style="background:var(--bg);border-color:var(--border)"></span> No lo tengo</span>
 </div>
 
 <main id="mc"></main>
@@ -239,7 +238,7 @@
 <script>
 // ================== CONFIGURACIÓN DE FIREBASE ================
 const firebaseConfig = {
-  apiKey: "AIzaSyBtlBxfWT0QDSQ0W1_82D0zCpiCZD4yuwE",
+  apiKey: "AIzaSyCkuYvp2-e9tkWZYLzqXDdtBhQlTXkx2xU",
   authDomain: "panini-mundial-2026-53d4c.firebaseapp.com",
   projectId: "panini-mundial-2026-53d4c",
   storageBucket: "panini-mundial-2026-53d4c.firebasestorage.app",
@@ -640,6 +639,7 @@ function render() {
 
       el.innerHTML = `<span class="sn">${s.id}</span>${s.foil ? '<span class="st">FOIL</span>' : s.isPhoto ? '<span class="st" style="background:linear-gradient(90deg,#3b82f6,#6366f1)">FOTO</span>' : ''}<span class="sl">${s.label}</span>`;
 
+      // NUEVO: un solo clic rota entre los 3 estados
       el.addEventListener('click', () => {
         if (!isViewingSelf) {
           if (st === 2 && mySt === 0) {
@@ -652,21 +652,21 @@ function render() {
           }
           return;
         }
-        const c = get(s.id, state), n = c === 0 ? 1 : 0;
+        // Rotación: 0 → 1 → 2 → 0
+        const c = get(s.id, state);
+        const n = (c + 1) % 3;
         set(s.id, n);
         state = { ...selfState };
-        el.className = 'sk' + (n === 1 ? ' owned' : '');
-        rH(sec); updateStats();
-      });
-
-      el.addEventListener('dblclick', e => {
-        e.preventDefault();
-        if (!isViewingSelf) return;
-        const c = get(s.id, state), n = c === 2 ? 1 : 2;
-        set(s.id, n);
-        state = { ...selfState };
-        el.className = 'sk' + (n === 2 ? ' rep' : ' owned');
-        rH(sec); updateStats();
+        // Actualizar clases
+        el.classList.remove('owned', 'rep');
+        if (n === 1) el.classList.add('owned');
+        else if (n === 2) el.classList.add('rep');
+        // Toast informativo
+        if (n === 1) toast('✅ ¡Conseguido!');
+        else if (n === 2) toast('🔁 Repetido');
+        else toast('❌ Eliminado');
+        rH(sec);
+        updateStats();
       });
 
       grid.appendChild(el);

@@ -133,6 +133,18 @@
   .sk.rep { background:#1a1f0d; border-color:#84cc1688; }
   .sk.rep::after { content:'×2'; position:absolute; top:2px; right:4px; font-size:.54rem; color:#84cc16; font-weight:700; }
   .sk.wished { border-style:dashed; border-color:var(--accent); }
+  .sk.interchangeable {
+    border-color: #10b981 !important;
+    border-style: dashed !important;
+    background: #0a2e1a;
+  }
+  .sk.interchangeable::before {
+    content: '🔄';
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    font-size: .5rem;
+  }
   .sn { font-family:'Bebas Neue',sans-serif; font-size:.86rem; color:var(--muted); line-height:1; }
   .sk.owned .sn, .sk.rep .sn { color:var(--text); }
   .sl { font-size:.52rem; color:var(--muted); line-height:1.2; word-break:break-word; text-align:center; }
@@ -165,6 +177,7 @@
   <span style="color:var(--muted);">| Mi código:</span>
   <span class="sync-code" id="syncCode" title="Pulsa para copiar">-----</span>
   <button class="sync-btn" id="btnLink">👥 Vincular otro álbum</button>
+  <button class="sync-btn" id="btnUnlink" style="display:none;">🗑️ Quitar vinculación</button>
   <span style="color:var(--muted);">| Viendo:</span>
   <div class="view-selector">
     <select id="viewSelect">
@@ -194,6 +207,7 @@
   <button class="fb" data-f="missing">Me faltan</button>
   <button class="fb" data-f="owned">Tengo</button>
   <button class="fb" data-f="rep">Repetidos</button>
+  <button class="fb" data-f="interchangeable">🔄 Intercambiables</button>
   <button class="fb" id="bex">Expandir todo</button>
   <button class="fb" id="brs" style="color:#ef4444;border-color:#ef4444">Reiniciar</button>
 </div>
@@ -203,7 +217,7 @@
   <strong style="color:var(--text)">2 clics</strong> repetido &nbsp;|&nbsp;
   <span><span class="lb" style="background:#0d2e1a;border-color:#22c55e88"></span> Tengo</span>
   <span><span class="lb" style="background:#1a1f0d;border-color:#84cc1688"></span> Repetido</span>
-  <span><span class="lb" style="background:var(--bg);border-color:var(--border)"></span> Me falta</span>
+  <span><span class="lb" style="background:#0a2e1a;border:2px dashed #10b981;"></span> Intercambiable</span>
 </div>
 
 <main id="mc"></main>
@@ -221,9 +235,9 @@
 </div>
 
 <script>
-// ================== CONFIGURACIÓN DE FIREBASE (YA CON TUS DATOS) ================
+// ================== CONFIGURACIÓN DE FIREBASE ================
 const firebaseConfig = {
-  apiKey: "AIzaSyCkuYvp2-e9tkWZYlzqXDdtBhQlTXkx2xU",
+  apiKey: "AIzaSyCkuYvp2-e9tkWZYLzqXDdtBhQlTXkx2xU",
   authDomain: "panini-mundial-2026-53d4c.firebaseapp.com",
   projectId: "panini-mundial-2026-53d4c",
   storageBucket: "panini-mundial-2026-53d4c.firebasestorage.app",
@@ -238,9 +252,10 @@ const auth = firebase.auth();
 // ============ VARIABLES GLOBALES ============
 const SYNC_ID_KEY = 'panini-sync-id';
 const KEY_LOCAL = 'panini-wc26-local';
+const LINKED_KEY = 'panini-linked'; // clave para almacenar códigos vinculados
 let state = {};               // estado del álbum actualmente visualizado
 let selfState = {};           // mi colección real
-let linkedStates = {};        // álbumes vinculados
+let linkedStates = {};        // álbumes vinculados { code: stickers }
 let currentView = 'self';     // 'self' o código del vinculado
 let syncId = null;
 let unsubscribe = null;
@@ -275,9 +290,9 @@ async function initSync() {
   document.getElementById('syncCode').textContent = syncId;
   auth.signInAnonymously().then(() => {
     listenToCloud();
-    // Limpiar listeners al cerrar sesión
   }).catch(e => {
     setSyncStatus(false);
+    document.getElementById('syncText').textContent = 'Error auth: ' + e.message;
   });
 }
 
@@ -305,6 +320,7 @@ function listenToCloud() {
       }
     }, err => {
       setSyncStatus(false);
+      document.getElementById('syncText').textContent = 'Error Firestore: ' + err.message;
     });
 }
 
@@ -313,7 +329,9 @@ function pushToCloud() {
   db.collection('albums').doc(syncId).set({
     stickers: selfState,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  }, { merge: true });
+  }, { merge: true }).catch(e => {
+    console.error('Error al subir:', e);
+  });
 }
 
 function setSyncStatus(online) {
@@ -324,40 +342,69 @@ function setSyncStatus(online) {
   text.textContent = online ? 'Conectado' : 'Sin conexión';
 }
 
-// ============ VINCULAR OTRO ÁLBUM ============
+// ============ VINCULAR / DESVINCULAR ============
 async function linkDevice() {
   const code = document.getElementById('linkCode').value.trim().toUpperCase();
   if (!code || code.length<4) { toast('⚠️ Código inválido'); return; }
   if (code === syncId) { toast('⚠️ Ese es tu propio código'); return; }
   
   closeModal('modalLink');
-  let linked = JSON.parse(localStorage.getItem('panini-linked')||'[]');
+  let linked = JSON.parse(localStorage.getItem(LINKED_KEY)||'[]');
   if (!linked.includes(code)) {
     linked.push(code);
-    localStorage.setItem('panini-linked', JSON.stringify(linked));
+    localStorage.setItem(LINKED_KEY, JSON.stringify(linked));
   }
   await loadLinkedAlbum(code);
   updateViewSelector();
 }
 
 async function loadLinkedAlbum(code) {
-  const doc = await db.collection('albums').doc(code).get();
-  if (doc.exists) {
-    linkedStates[code] = doc.data().stickers || {};
-  } else {
-    linkedStates[code] = {};
-    toast('ℹ️ Ese código aún no tiene datos. Cuando tu padre use su álbum, aparecerán aquí.');
+  try {
+    const doc = await db.collection('albums').doc(code).get();
+    if (doc.exists) {
+      linkedStates[code] = doc.data().stickers || {};
+    } else {
+      linkedStates[code] = {};
+      toast('ℹ️ Ese código aún no tiene datos. Cuando tu padre use su álbum, aparecerán aquí.');
+    }
+  } catch(e) {
+    toast('⚠️ Error al cargar álbum: ' + e.message);
   }
+}
+
+function removeLinkedAlbum(code) {
+  // Quitar de la lista
+  let linked = JSON.parse(localStorage.getItem(LINKED_KEY)||'[]');
+  linked = linked.filter(c => c !== code);
+  localStorage.setItem(LINKED_KEY, JSON.stringify(linked));
+  // Quitar de estados cargados
+  delete linkedStates[code];
+  // Si estábamos viendo ese álbum, volver a self
+  if (currentView === code) {
+    currentView = 'self';
+    state = { ...selfState };
+  }
+  updateViewSelector();
+  render();
+  toast('🗑️ Vinculación eliminada');
 }
 
 function updateViewSelector() {
   const sel = document.getElementById('viewSelect');
   sel.innerHTML = '<option value="self">Mi álbum</option>';
-  const linked = JSON.parse(localStorage.getItem('panini-linked')||'[]');
+  const linked = JSON.parse(localStorage.getItem(LINKED_KEY)||'[]');
   linked.forEach(code => {
     const exists = linkedStates[code] !== undefined;
     sel.innerHTML += `<option value="${code}">Álbum ${code} ${exists ? '' : '(sin datos)'}</option>`;
   });
+  // Mostrar/ocultar botón de quitar vinculación
+  const btnUnlink = document.getElementById('btnUnlink');
+  if (currentView !== 'self') {
+    btnUnlink.style.display = 'inline-block';
+    btnUnlink.onclick = () => removeLinkedAlbum(currentView);
+  } else {
+    btnUnlink.style.display = 'none';
+  }
 }
 
 // ============ CAMBIAR VISTA ============
@@ -369,7 +416,12 @@ document.getElementById('viewSelect').addEventListener('change', function(e) {
   } else {
     currentView = val;
     state = { ...(linkedStates[val] || {}) };
+    // Si el filtro actual es 'interchangeable', no se puede aplicar en vista propia, lo desactivamos
+    if (filter === 'interchangeable') {
+      // No se desactiva automáticamente, se evaluará en render()
+    }
   }
+  updateViewSelector();
   render();
   updateMatchBadge();
 });
@@ -389,7 +441,7 @@ function updateMatchBadge() {
   }
 }
 
-// PEDIR CROMO REPETIDO
+// PEDIR CROMO REPETIDO (mantenemos funcionalidad)
 function toggleWish(id) {
   if (currentView === 'self') return;
   let wished = JSON.parse(localStorage.getItem('panini-wished')||'[]');
@@ -552,6 +604,12 @@ function render() {
     const grid = sec.querySelector('.sg');
     team.stickers.forEach(s => {
       const st = get(s.id, state);
+      const mySt = get(s.id, selfState);
+      // Lógica de filtro 'interchangeable': solo cromos que en el álbum vinculado son repetidos (2) y yo no tengo (0)
+      if (filter === 'interchangeable') {
+        if (isViewingSelf) return; // no aplica en vista propia
+        if (!(st === 2 && mySt === 0)) return;
+      }
       if (filter === 'missing' && st > 0) return;
       if (filter === 'owned' && st === 0) return;
       if (filter === 'rep' && st !== 2) return;
@@ -562,16 +620,20 @@ function render() {
       if (st === 1) classes += ' owned';
       else if (st === 2) classes += ' rep';
       if (wished.includes(s.id)) classes += ' wished';
+      // Añadir clase interchangeable si corresponde (vista ajena, repetido en ese álbum, no lo tengo yo)
+      if (!isViewingSelf && st === 2 && mySt === 0) {
+        classes += ' interchangeable';
+      }
       el.className = classes;
 
       el.innerHTML = `<span class="sn">${s.id}</span>${s.foil ? '<span class="st">FOIL</span>' : s.isPhoto ? '<span class="st" style="background:linear-gradient(90deg,#3b82f6,#6366f1)">FOTO</span>' : ''}<span class="sl">${s.label}</span>`;
 
       el.addEventListener('click', () => {
         if (!isViewingSelf) {
-          if (st === 2 && get(s.id, selfState) === 0) {
+          if (st === 2 && mySt === 0) {
             toggleWish(s.id);
             el.classList.toggle('wished');
-          } else if (st === 2 && get(s.id, selfState) > 0) {
+          } else if (st === 2 && mySt > 0) {
             toast('ℹ️ Ya tienes este cromo');
           } else {
             toast('ℹ️ Solo puedes marcar tus propios cromos');
@@ -666,7 +728,7 @@ currentView = 'self';
 state = { ...selfState };
 
 (async () => {
-  const linked = JSON.parse(localStorage.getItem('panini-linked')||'[]');
+  const linked = JSON.parse(localStorage.getItem(LINKED_KEY)||'[]');
   for (let code of linked) {
     await loadLinkedAlbum(code);
   }

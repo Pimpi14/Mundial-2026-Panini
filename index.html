@@ -270,8 +270,8 @@ let syncId = null;
 let unsubscribe = null;
 let isOnline = false;
 let openSections = new Set();
-let currentFilter = 'all'; // Variable de filtro unificada
-let expanded = false;      // Variable expandir declarada al inicio
+let currentFilter = 'all';
+let expanded = false;
 
 function loadLocal() {
   const saved = localStorage.getItem(KEY_LOCAL);
@@ -662,43 +662,21 @@ function render() {
 
       el.innerHTML = `<span class="sn">${s.id}</span>${s.foil ? '<span class="st">FOIL</span>' : s.isPhoto ? '<span class="st" style="background:linear-gradient(90deg,#3b82f6,#6366f1)">FOTO</span>' : ''}<span class="sl">${s.label}</span>`;
 
+      // NUEVO COMPORTAMIENTO DE CLICS
+      let clickTimer = null;
       el.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (!isViewingSelf) {
-          if (st === 2 && mySt === 0) {
-            toggleWish(s.id);
-            el.classList.toggle('wished');
-          } else if (st === 2 && mySt > 0) {
-            toast('ℹ️ Ya tienes este cromo');
-          } else {
-            toast('ℹ️ Solo puedes marcar tus propios cromos');
-          }
-          return;
-        }
-        let currentStatus = 0;
-        if (el.classList.contains('owned')) currentStatus = 1;
-        else if (el.classList.contains('rep')) currentStatus = 2;
-        const newStatus = (currentStatus + 1) % 3;
-        el.classList.remove('owned', 'rep', 'wished');
-        if (newStatus === 1) {
-          el.classList.add('owned');
-          toast('✅ ¡Conseguido!');
-        } else if (newStatus === 2) {
-          el.classList.add('rep');
-          toast('🔁 Repetido');
+        if (clickTimer) {
+          // Doble clic
+          clearTimeout(clickTimer);
+          clickTimer = null;
+          handleDoubleClick(e, el, s, sec, isViewingSelf, mySt);
         } else {
-          toast('❌ Eliminado');
+          clickTimer = setTimeout(() => {
+            clickTimer = null;
+            handleSingleClick(e, el, s, sec, isViewingSelf, mySt);
+          }, 300);
         }
-        if (newStatus === 0) {
-          delete selfState[s.id];
-        } else {
-          selfState[s.id] = newStatus;
-        }
-        saveLocal();
-        if (isOnline) pushToCloud();
-        state = { ...selfState };
-        rH(sec);
-        updateStats();
       });
 
       grid.appendChild(el);
@@ -723,6 +701,62 @@ function render() {
   });
 
   updateStats();
+}
+
+function handleSingleClick(e, el, s, sec, isViewingSelf, mySt) {
+  if (!isViewingSelf) {
+    if (mySt === 2 && get(s.id, selfState) === 0) {
+      toggleWish(s.id);
+      el.classList.toggle('wished');
+    } else if (mySt === 2 && get(s.id, selfState) > 0) {
+      toast('ℹ️ Ya tienes este cromo');
+    } else {
+      toast('ℹ️ Solo puedes marcar tus propios cromos');
+    }
+    return;
+  }
+
+  const currentVal = get(s.id, selfState);
+  let newVal;
+  if (currentVal === 0) {
+    newVal = 1; // Lo tengo
+    toast('✅ ¡Conseguido!');
+  } else if (currentVal === 1) {
+    newVal = 0; // Desmarcar "tengo"
+    toast('❌ Quitado');
+  } else if (currentVal === 2) {
+    newVal = 0; // De repetido a no lo tengo
+    toast('❌ Eliminado');
+  }
+  applyStateChange(el, s.id, newVal);
+  rH(sec);
+  updateStats();
+}
+
+function handleDoubleClick(e, el, s, sec, isViewingSelf, mySt) {
+  if (!isViewingSelf) return; // Solo en álbum propio
+
+  const currentVal = get(s.id, selfState);
+  if (currentVal === 1) {
+    applyStateChange(el, s.id, 2);
+    toast('🔁 Repetido');
+    rH(sec);
+    updateStats();
+  }
+}
+
+function applyStateChange(el, id, newVal) {
+  el.classList.remove('owned', 'rep', 'wished');
+  if (newVal === 0) {
+    delete selfState[id];
+  } else {
+    selfState[id] = newVal;
+    if (newVal === 1) el.classList.add('owned');
+    else if (newVal === 2) el.classList.add('rep');
+  }
+  saveLocal();
+  if (isOnline) pushToCloud();
+  state = { ...selfState };
 }
 
 function rH(sec) {

@@ -130,9 +130,9 @@
   .sk { border:1px solid var(--border); border-radius:6px; padding:5px 3px; text-align:center; cursor:pointer; transition:all .15s; background:var(--bg); min-height:56px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; position:relative; }
   .sk:hover { border-color:var(--accent); transform:scale(1.05); z-index:1; }
   .sk.owned { background:#0d2e1a; border-color:#22c55e88; }
-  .sk.owned::after { content:'✓'; position:absolute; top:2px; right:4px; font-size:.56rem; color:var(--green); font-weight:700; }
+  .sk.owned::after { content:'✓'; position:absolute; top:2px; right:4px; font-size:.56rem; color:var(--green); font-weight:700; pointer-events:none; }
   .sk.rep { background:#1a1f0d; border-color:#84cc1688; }
-  .sk.rep::after { content:'×2'; position:absolute; top:2px; right:4px; font-size:.54rem; color:#84cc16; font-weight:700; }
+  .sk.rep::after { content:'×2'; position:absolute; top:2px; right:4px; font-size:.54rem; color:#84cc16; font-weight:700; pointer-events:none; }
   .sk.wished { border-style:dashed; border-color:var(--accent); }
   .sk.interchangeable {
     border-color: #10b981 !important;
@@ -145,6 +145,7 @@
     top: 2px;
     left: 4px;
     font-size: .5rem;
+    pointer-events:none;
   }
   .sn { font-family:'Bebas Neue',sans-serif; font-size:.86rem; color:var(--muted); line-height:1; }
   .sk.owned .sn, .sk.rep .sn { color:var(--text); }
@@ -639,7 +640,7 @@ function render() {
 
       el.innerHTML = `<span class="sn">${s.id}</span>${s.foil ? '<span class="st">FOIL</span>' : s.isPhoto ? '<span class="st" style="background:linear-gradient(90deg,#3b82f6,#6366f1)">FOTO</span>' : ''}<span class="sl">${s.label}</span>`;
 
-      // CORREGIDO: Rotación correcta y actualización directa de clases
+      // NUEVO: un solo clic rota entre los 3 estados y NO cierra el desplegable
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         if (!isViewingSelf) {
@@ -653,18 +654,17 @@ function render() {
           }
           return;
         }
-        // Obtenemos el valor actual directamente de selfState para evitar desfases
+        // Rotación: 0 → 1 → 2 → 0, usando el estado real (selfState)
         const currentVal = get(s.id, selfState);
-        const nextVal = (currentVal + 1) % 3;
-        set(s.id, nextVal);
-        // Actualizamos state para futuras lecturas
+        const newVal = (currentVal + 1) % 3;
+        set(s.id, newVal);
+        // Actualizamos la copia local y las clases del elemento
         state = { ...selfState };
-        // Limpiamos clases y asignamos la nueva
         el.classList.remove('owned', 'rep', 'wished');
-        if (nextVal === 1) {
+        if (newVal === 1) {
           el.classList.add('owned');
           toast('✅ ¡Conseguido!');
-        } else if (nextVal === 2) {
+        } else if (newVal === 2) {
           el.classList.add('rep');
           toast('🔁 Repetido');
         } else {

@@ -211,7 +211,6 @@
   <button class="fb" data-f="rep">Repetidos</button>
   <button class="fb" data-f="interchangeable">🔄 Intercambiables</button>
   <button class="fb" id="btnMissingFromOther" data-f="missingFromOther" disabled>👀 Me faltan de él</button>
-  <button class="fb" id="btnClearFilter" style="display:none; background:#ef4444; color:#fff; border-color:#ef4444;" onclick="clearFilter()">❌ Quitar filtro</button>
   <button class="fb" id="bex">Expandir todo</button>
   <button class="fb" id="brs" style="color:#ef4444;border-color:#ef4444">Reiniciar</button>
 </div>
@@ -464,14 +463,6 @@ function toggleWish(id) {
     toast('✏️ Cromo pedido');
   }
   localStorage.setItem('panini-wished', JSON.stringify(wished));
-  render();
-}
-
-function clearFilter() {
-  currentFilter = 'all';
-  document.querySelectorAll('.ctrl .fb').forEach(b => b.classList.remove('on'));
-  document.querySelector('.ctrl .fb[data-f="all"]').classList.add('on');
-  document.getElementById('btnClearFilter').style.display = 'none';
   render();
 }
 
@@ -747,7 +738,6 @@ document.querySelectorAll('.ctrl .fb[data-f]').forEach(b => b.addEventListener('
   currentFilter = filterType;
   document.querySelectorAll('.ctrl .fb[data-f]').forEach(x => x.classList.remove('on'));
   this.classList.add('on');
-  document.getElementById('btnClearFilter').style.display = 'inline-block';
   render();
 }));
 
@@ -756,11 +746,8 @@ document.getElementById('btnMissingFromOther').addEventListener('click', () => {
   currentFilter = 'missingFromOther';
   document.querySelectorAll('.ctrl .fb[data-f]').forEach(x => x.classList.remove('on'));
   document.getElementById('btnMissingFromOther').classList.add('on');
-  document.getElementById('btnClearFilter').style.display = 'inline-block';
   render();
 });
-
-document.getElementById('btnClearFilter').addEventListener('click', clearFilter);
 
 document.getElementById('bex').addEventListener('click', () => { 
   expanded = !expanded; 

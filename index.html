@@ -3,772 +3,117 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Panini Mundial 2026 – Mi Álbum Digital (992 cromos)</title>
-<meta name="description" content="Álbum digital interactivo con sincronización en la nube.">
-<meta name="theme-color" content="#0a0e1a">
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+<title>Test Álbum</title>
 <style>
-  :root {
-    --bg: #0a0e1a; --surface: #111827; --card: #1a2235; --border: #243050;
-    --accent: #e8b84b; --accent2: #3b82f6; --green: #22c55e; --red: #ef4444;
-    --text: #e2e8f0; --muted: #64748b; --r: 10px;
-  }
-  * { box-sizing:border-box; margin:0; padding:0; }
-  body { background:var(--bg); color:var(--text); font-family:'Outfit',sans-serif; min-height:100vh; }
-  header {
-    background:linear-gradient(135deg,#0f1a2e,#1a2a4a 50%,#0f1a2e);
-    border-bottom:2px solid var(--accent); padding:12px 14px;
-    position:sticky; top:0; z-index:100; display:flex;
-    align-items:center; gap:10px; flex-wrap:wrap;
-  }
-  .logo {
-    font-family:'Bebas Neue',sans-serif; font-size:1.6rem; letter-spacing:2px;
-    background:linear-gradient(90deg,var(--accent),#fff 60%,var(--accent));
-    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-    background-clip:text; line-height:1; flex-shrink:0;
-  }
-  .logo span { background:linear-gradient(90deg,var(--accent2),var(--accent)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-  .hs { display:flex; gap:7px; flex-wrap:wrap; flex:1; justify-content:flex-end; align-items:center; }
-  .sp {
-    background:var(--card); border:1px solid var(--border); border-radius:30px;
-    padding:4px 11px; font-size:.78rem; font-weight:600;
-    display:flex; align-items:center; gap:5px; white-space:nowrap;
-  }
-  .dot { width:7px; height:7px; border-radius:50%; }
-  .dg { background:var(--green); } .dr { background:var(--red); } .da { background:var(--accent); }
-  .sync-bar {
-    background:var(--surface); border-bottom:1px solid var(--border);
-    padding:6px 14px; display:flex; align-items:center; gap:8px;
-    font-size:.72rem; flex-wrap:wrap;
-  }
-  .sync-code {
-    background:var(--card); border:1px solid var(--accent); border-radius:15px;
-    padding:3px 10px; font-weight:700; color:var(--accent);
-    font-family:monospace; letter-spacing:1px; cursor:pointer;
-  }
-  .sync-btn {
-    background:var(--card); border:1px solid var(--border); border-radius:var(--r);
-    color:var(--text); font-family:'Outfit',sans-serif; font-size:.68rem;
-    font-weight:600; padding:4px 8px; cursor:pointer; transition:all .2s;
-  }
-  .sync-btn:hover { border-color:var(--accent); color:var(--accent); }
-  .sync-status { display:flex; align-items:center; gap:4px; font-size:.65rem; color:var(--muted); }
-  .sync-dot { width:6px; height:6px; border-radius:50%; }
-  .sync-dot.online { background:var(--green); }
-  .sync-dot.offline { background:var(--red); }
-  .view-selector {
-    background:var(--card); border:1px solid var(--border); border-radius:15px;
-    padding:2px 8px; font-size:.7rem; display:flex; align-items:center; gap:4px;
-  }
-  .view-selector select {
-    background:transparent; border:none; color:var(--text); font-family:'Outfit',sans-serif;
-    font-size:.7rem; font-weight:600; outline:none; cursor:pointer;
-  }
-  .match-badge { background:var(--accent); color:#000; border-radius:10px; padding:1px 6px; font-size:.6rem; font-weight:700; }
-  .pw { background:var(--card); border-bottom:1px solid var(--border); padding:7px 14px; }
-  .pbg { background:var(--border); border-radius:99px; height:6px; overflow:hidden; }
-  .pbf { height:100%; background:linear-gradient(90deg,var(--accent2),var(--accent)); border-radius:99px; transition:width .5s; }
-  .pl { font-size:.7rem; color:var(--muted); margin-top:4px; text-align:right; }
-  .ctrl {
-    padding:9px 12px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;
-    background:var(--surface); border-bottom:1px solid var(--border);
-    position:sticky; top:120px; z-index:90;
-  }
-  .sw { flex:1; min-width:140px; position:relative; }
-  .sw input {
-    width:100%; background:var(--card); border:1px solid var(--border);
-    border-radius:var(--r); color:var(--text); font-family:'Outfit',sans-serif;
-    font-size:.82rem; padding:6px 9px 6px 28px; outline:none; transition:all .2s;
-  }
-  .sw input:focus { border-color:var(--accent2); }
-  .si { position:absolute; left:8px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:.8rem; }
-  .fb {
-    background:var(--card); border:1px solid var(--border); border-radius:var(--r);
-    color:var(--text); font-family:'Outfit',sans-serif; font-size:.74rem;
-    font-weight:600; padding:5px 10px; cursor:pointer; transition:all .2s; white-space:nowrap;
-  }
-  .fb:hover { border-color:var(--accent); color:var(--accent); }
-  .fb.on { background:var(--accent); color:#000; border-color:var(--accent); }
-  .fb:disabled { opacity:0.4; cursor:not-allowed; }
-  .grp { font-size:.65rem; font-weight:700; color:var(--muted); letter-spacing:2px; padding:10px 10px 4px; text-transform:uppercase; }
-  .leg { display:flex; gap:9px; flex-wrap:wrap; padding:5px 12px; background:var(--surface); border-bottom:1px solid var(--border); font-size:.68rem; color:var(--muted); align-items:center; }
-  .lb { width:10px; height:10px; border-radius:3px; border:1px solid; display:inline-block; }
-  main { padding:9px 9px 80px; max-width:960px; margin:0 auto; }
-  .ts { margin-bottom:6px; border-radius:var(--r); border:1px solid var(--border); overflow:hidden; }
-  .ts.complete { border-color:#22c55e55; } .ts.hidden { display:none; }
-  .th { background:var(--card); padding:8px 12px; display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none; transition:background .2s; }
-  .th:hover { background:#1f2d46; }
-  .flag-img { width:24px; height:16px; border-radius:2px; object-fit:cover; flex-shrink:0; }
-  .tn { font-weight:700; font-size:.86rem; flex:1; display:flex; align-items:center; gap:8px; }
-  .tc { font-size:.63rem; color:var(--muted); font-weight:600; letter-spacing:1px; }
-  .tpm { display:flex; align-items:center; gap:5px; font-size:.7rem; font-weight:600; }
-  .mb { width:48px; height:4px; background:var(--border); border-radius:99px; overflow:hidden; }
-  .mf { height:100%; background:var(--accent2); border-radius:99px; transition:width .4s; }
-  .ts.complete .mf { background:var(--green); }
-  .chev { font-size:.7rem; color:var(--muted); transition:transform .25s; }
-  .ts.open .chev { transform:rotate(180deg); }
-  .sg { display:none; grid-template-columns:repeat(auto-fill,minmax(62px,1fr)); gap:5px; padding:8px; background:var(--surface); }
-  .ts.open .sg { display:grid; }
-  .sk { border:1px solid var(--border); border-radius:6px; padding:5px 3px; text-align:center; cursor:pointer; transition:all .15s; background:var(--bg); min-height:56px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; position:relative; }
-  .sk:hover { border-color:var(--accent); transform:scale(1.05); z-index:1; }
-  .sk.owned { background:#0d2e1a; border-color:#22c55e88; }
-  .sk.owned::after { content:'✓'; position:absolute; top:2px; right:4px; font-size:.56rem; color:var(--green); font-weight:700; pointer-events:none; }
-  .sk.rep { background:#1a1f0d; border-color:#84cc1688; }
-  .sk.rep::after { content:'×2'; position:absolute; top:2px; right:4px; font-size:.54rem; color:#84cc16; font-weight:700; pointer-events:none; }
-  .sk.wished { border-style:dashed; border-color:var(--accent); }
-  .sk.interchangeable { border-color: #10b981 !important; border-style: dashed !important; background: #0a2e1a; }
-  .sk.interchangeable::before { content: '🔄'; position: absolute; top: 2px; left: 4px; font-size: .5rem; pointer-events:none; }
-  .sn { font-family:'Bebas Neue',sans-serif; font-size:.86rem; color:var(--muted); line-height:1; }
-  .sk.owned .sn, .sk.rep .sn { color:var(--text); }
-  .sl { font-size:.52rem; color:var(--muted); line-height:1.2; word-break:break-word; text-align:center; }
-  .st { background:linear-gradient(90deg,var(--accent),#f59e0b); color:#000; font-size:.46rem; font-weight:700; border-radius:3px; padding:1px 3px; }
-  .toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(60px); background:var(--card); border:1px solid var(--accent); border-radius:30px; padding:7px 16px; font-size:.78rem; font-weight:600; z-index:9999; transition:transform .3s; pointer-events:none; white-space:nowrap; }
-  .toast.show { transform:translateX(-50%) translateY(0); }
-  .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:10000; display:flex; align-items:center; justify-content:center; }
-  .modal { background:var(--surface); border:1px solid var(--accent); border-radius:var(--r); padding:20px; max-width:400px; width:90%; text-align:center; }
-  .modal h3 { margin-bottom:12px; color:var(--accent); }
-  .modal input { width:100%; background:var(--card); border:1px solid var(--border); border-radius:var(--r); color:var(--text); padding:8px 12px; font-family:monospace; font-size:1.2rem; text-align:center; letter-spacing:3px; margin:10px 0; outline:none; }
-  .modal input:focus { border-color:var(--accent); }
-  .modal button { background:var(--accent); color:#000; border:none; border-radius:var(--r); padding:8px 20px; font-weight:700; cursor:pointer; margin:5px; }
-  .modal button.cancel { background:var(--card); color:var(--text); border:1px solid var(--border); }
-  @media (max-width:480px) {
-    .logo { font-size:1.15rem; }
-    .sg { grid-template-columns:repeat(auto-fill,minmax(50px,1fr)); }
-    .flag-img { width:20px; height:14px; }
-  }
+  body { background:#0a0e1a; color:#e2e8f0; font-family:sans-serif; padding:10px; }
+  .sk { display:inline-block; width:60px; height:60px; margin:4px; border:1px solid #fff; text-align:center; vertical-align:top; cursor:pointer; }
+  .sk.owned { background:#0d2e1a; }
+  .sk.rep { background:#1a1f0d; }
+  button { margin:5px; padding:5px 10px; background:#1a2235; color:#e2e8f0; border:1px solid #fff; border-radius:8px; cursor:pointer; }
+  .grp { font-weight:bold; margin-top:15px; }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#e8b84b; color:#000; padding:7px 15px; border-radius:20px; font-weight:bold; display:none; }
+  .toast.show { display:block; }
 </style>
 </head>
 <body>
-<div class="sync-bar" id="syncBar">
-  <span class="sync-status">
-    <span class="sync-dot" id="syncDot"></span>
-    <span id="syncText">Conectando...</span>
-  </span>
-  <span style="color:var(--muted);">| Mi código:</span>
-  <span class="sync-code" id="syncCode" title="Pulsa para copiar">-----</span>
-  <button class="sync-btn" id="btnLink">👥 Vincular otro álbum</button>
-  <button class="sync-btn" id="btnUnlink" style="display:none;">🗑️ Quitar vinculación</button>
-  <span style="color:var(--muted);">| Viendo:</span>
-  <div class="view-selector">
-    <select id="viewSelect">
-      <option value="self">Mi álbum</option>
-    </select>
-  </div>
-  <span class="match-badge" id="matchBadge" style="display:none;"></span>
-</div>
-
-<header>
-  <div class="logo">PANINI <span>MUNDIAL 2026™</span></div>
-  <div class="hs">
-    <div class="sp"><span class="dot dg"></span><span id="so">0</span> tengo</div>
-    <div class="sp"><span class="dot dr"></span><span id="sm">992</span> faltan</div>
-    <div class="sp"><span class="dot da"></span><span id="sr">0</span> repetidos</div>
-  </div>
-</header>
-
-<div class="pw">
-  <div class="pbg"><div class="pbf" id="pb" style="width:0%"></div></div>
-  <div class="pl" id="pl">0 / 992 cromos (0%)</div>
-</div>
-
-<div class="ctrl">
-  <div class="sw"><span class="si">🔍</span><input type="text" id="qi" placeholder="Buscar equipo o jugador…"></div>
-  <button class="fb on" data-f="all">Todos</button>
-  <button class="fb" data-f="missing">Me faltan</button>
-  <button class="fb" data-f="owned">Tengo</button>
-  <button class="fb" data-f="rep">Repetidos</button>
-  <button class="fb" data-f="interchangeable">🔄 Intercambiables</button>
-  <button class="fb" id="btnMissingFromOther" data-f="missingFromOther" disabled>👀 Me faltan de él</button>
-  <button class="fb" id="bex">Expandir todo</button>
-  <button class="fb" id="brs" style="color:#ef4444;border-color:#ef4444">Reiniciar</button>
-</div>
-
-<div class="leg">
-  <strong style="color:var(--text)">1 clic</strong> cambia: No tengo → Lo tengo → Repetido &nbsp;|&nbsp;
-  <span><span class="lb" style="background:#0d2e1a;border-color:#22c55e88"></span> Lo tengo</span>
-  <span><span class="lb" style="background:#1a1f0d;border-color:#84cc1688"></span> Repetido</span>
-  <span><span class="lb" style="background:var(--bg);border-color:var(--border)"></span> No lo tengo</span>
-</div>
-
-<main id="mc">
-  <p style="color:var(--muted);text-align:center;padding:20px;">Cargando álbum...</p>
-</main>
+<h1 style="color:#e8b84b;">PANINI MUNDIAL 2026™ - Test</h1>
+<button onclick="diagnosticar()">🔍 Diagnosticar</button>
+<div id="mc"></div>
 <div class="toast" id="toast"></div>
 
-<div class="modal-overlay" id="modalLink" style="display:none;">
-  <div class="modal">
-    <h3>👥 Vincular otro álbum</h3>
-    <p style="font-size:.8rem;color:var(--muted);">Introduce el código del álbum de tu padre:</p>
-    <input type="text" id="linkCode" maxlength="8" placeholder="EJ: ABC123">
-    <br>
-    <button onclick="linkDevice()">Vincular</button>
-    <button class="cancel" onclick="closeModal('modalLink')">Cancelar</button>
-  </div>
-</div>
-
 <script>
-// ================== CONFIGURACIÓN DE FIREBASE ================
-const firebaseConfig = {
-  apiKey: "AIzaSyBtlBxfWT0QDSQ0W1_82D0zCpiCZD4yuwE",
-  authDomain: "panini-mundial-2026-53d4c.firebaseapp.com",
-  projectId: "panini-mundial-2026-53d4c",
-  storageBucket: "panini-mundial-2026-53d4c.firebasestorage.app",
-  messagingSenderId: "899949264065",
-  appId: "1:899949264065:web:8fc51d817a5eef7418e840"
-};
-
-try {
-  firebase.initializeApp(firebaseConfig);
-} catch(e) {
-  document.getElementById('mc').innerHTML = '<p style="color:red;">Error al iniciar Firebase: ' + e.message + '</p>';
-}
-
-const db = firebase.firestore();
-const auth = firebase.auth();
-
-// ============ VARIABLES GLOBALES ============
-const SYNC_ID_KEY = 'panini-sync-id';
-const KEY_LOCAL = 'panini-wc26-local';
-const LINKED_KEY = 'panini-linked';
-let state = {};
-let selfState = {};
-let linkedStates = {};
-let currentView = 'self';
-let compareWith = null;
-let syncId = null;
-let unsubscribe = null;
-let isOnline = false;
-let openSections = new Set();
-let currentFilter = 'all';
-
-function loadLocal() {
-  const saved = localStorage.getItem(KEY_LOCAL);
-  if (saved) {
-    try { selfState = JSON.parse(saved); state = { ...selfState }; } catch(e) {}
-  }
-}
-function saveLocal() { localStorage.setItem(KEY_LOCAL, JSON.stringify(selfState)); }
-const get = (id, st) => (st || state)[id] || 0;
-function set(id, v) {
-  if (currentView !== 'self') {
-    toast('⚠️ Solo puedes modificar tu propio álbum');
-    return;
-  }
-  if (v === 0) delete selfState[id]; else selfState[id] = v;
-  saveLocal();
-  if (isOnline) pushToCloud();
-}
-
-async function initSync() {
-  try {
-    syncId = localStorage.getItem(SYNC_ID_KEY);
-    if (!syncId) {
-      syncId = generateCode();
-      localStorage.setItem(SYNC_ID_KEY, syncId);
-    }
-    document.getElementById('syncCode').textContent = syncId;
-    await auth.signInAnonymously();
-    listenToCloud();
-  } catch(e) {
-    setSyncStatus(false);
-    document.getElementById('syncText').textContent = 'Error auth: ' + e.message;
-  }
-}
-
-function generateCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
-  return code;
-}
-
-function listenToCloud() {
-  if (unsubscribe) unsubscribe();
-  unsubscribe = db.collection('albums').doc(syncId)
-    .onSnapshot(doc => {
-      if (doc.exists) {
-        const cloudState = doc.data().stickers || {};
-        selfState = { ...selfState, ...cloudState };
-        saveLocal();
-        if (currentView === 'self') state = { ...selfState };
-        render();
-        setSyncStatus(true);
-      } else {
-        pushToCloud();
-        setSyncStatus(true);
-      }
-    }, err => {
-      setSyncStatus(false);
-      document.getElementById('syncText').textContent = 'Error Firestore: ' + err.message;
-    });
-}
-
-function pushToCloud() {
-  if (!syncId) return;
-  db.collection('albums').doc(syncId).set({
-    stickers: selfState,
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  }, { merge: true }).catch(e => console.error('Error al subir:', e));
-}
-
-function setSyncStatus(online) {
-  isOnline = online;
-  const dot = document.getElementById('syncDot');
-  const text = document.getElementById('syncText');
-  dot.className = 'sync-dot ' + (online ? 'online' : 'offline');
-  text.textContent = online ? 'Conectado' : 'Sin conexión';
-}
-
-async function linkDevice() {
-  const code = document.getElementById('linkCode').value.trim().toUpperCase();
-  if (!code || code.length<4) { toast('⚠️ Código inválido'); return; }
-  if (code === syncId) { toast('⚠️ Ese es tu propio código'); return; }
-  
-  closeModal('modalLink');
-  let linked = JSON.parse(localStorage.getItem(LINKED_KEY)||'[]');
-  if (!linked.includes(code)) {
-    linked.push(code);
-    localStorage.setItem(LINKED_KEY, JSON.stringify(linked));
-  }
-  await loadLinkedAlbum(code);
-  updateViewSelector();
-  if (!compareWith) compareWith = code;
-  updateMissingFromOtherButton();
-}
-
-async function loadLinkedAlbum(code) {
-  try {
-    const doc = await db.collection('albums').doc(code).get();
-    if (doc.exists) {
-      linkedStates[code] = doc.data().stickers || {};
-    } else {
-      linkedStates[code] = {};
-      toast('ℹ️ Ese código aún no tiene datos.');
-    }
-  } catch(e) {
-    toast('⚠️ Error al cargar álbum: ' + e.message);
-  }
-}
-
-function removeLinkedAlbum(code) {
-  let linked = JSON.parse(localStorage.getItem(LINKED_KEY)||'[]');
-  linked = linked.filter(c => c !== code);
-  localStorage.setItem(LINKED_KEY, JSON.stringify(linked));
-  delete linkedStates[code];
-  if (currentView === code) {
-    currentView = 'self';
-    state = { ...selfState };
-  }
-  if (compareWith === code) {
-    const remaining = Object.keys(linkedStates);
-    compareWith = remaining.length > 0 ? remaining[0] : null;
-  }
-  updateViewSelector();
-  render();
-  toast('🗑️ Vinculación eliminada');
-}
-
-function updateViewSelector() {
-  const sel = document.getElementById('viewSelect');
-  sel.innerHTML = '<option value="self">Mi álbum</option>';
-  const linked = JSON.parse(localStorage.getItem(LINKED_KEY)||'[]');
-  linked.forEach(code => {
-    const exists = linkedStates[code] !== undefined;
-    sel.innerHTML += `<option value="${code}">Álbum ${code} ${exists ? '' : '(sin datos)'}</option>`;
-  });
-  if (currentView === 'self') {
-    sel.value = 'self';
-  } else if (linkedStates[currentView]) {
-    sel.value = currentView;
-  }
-  const btnUnlink = document.getElementById('btnUnlink');
-  if (currentView !== 'self') {
-    btnUnlink.style.display = 'inline-block';
-    btnUnlink.onclick = () => removeLinkedAlbum(currentView);
-  } else {
-    btnUnlink.style.display = 'none';
-  }
-  updateMissingFromOtherButton();
-}
-
-document.getElementById('viewSelect').addEventListener('change', function(e) {
-  const val = e.target.value;
-  if (val === 'self') {
-    currentView = 'self';
-    state = { ...selfState };
-  } else {
-    currentView = val;
-    state = { ...(linkedStates[val] || {}) };
-    compareWith = val;
-  }
-  render();
-  updateMatchBadge();
-});
-
-function updateMatchBadge() {
-  const badge = document.getElementById('matchBadge');
-  if (currentView !== 'self' && linkedStates[currentView]) {
-    const other = linkedStates[currentView];
-    let matches = 0;
-    for (let id in selfState) {
-      if (selfState[id] === 2 && other[id] === 2) matches++;
-    }
-    badge.textContent = `🔁 ${matches} repetidos en común`;
-    badge.style.display = 'inline-block';
-  } else {
-    badge.style.display = 'none';
-  }
-}
-
-function updateMissingFromOtherButton() {
-  const btn = document.getElementById('btnMissingFromOther');
-  const hasLinked = Object.keys(linkedStates).length > 0;
-  btn.disabled = !hasLinked;
-  btn.title = hasLinked ? '' : 'Vincula otro álbum primero';
-}
-
-function toggleWish(id) {
-  if (currentView === 'self') return;
-  let wished = JSON.parse(localStorage.getItem('panini-wished')||'[]');
-  const idx = wished.indexOf(id);
-  if (idx >= 0) {
-    wished.splice(idx,1);
-    toast('❌ Pedido cancelado');
-  } else {
-    wished.push(id);
-    toast('✏️ Cromo pedido');
-  }
-  localStorage.setItem('panini-wished', JSON.stringify(wished));
-  render();
-}
-
-const FLAGS = {
-  'KOR':'kr','RSA':'za','MEX':'mx','CZE':'cz','CAN':'ca','BIH':'ba','QAT':'qa','SUI':'ch',
-  'BRA':'br','MAR':'ma','HAI':'ht','SCO':'gb-sct','USA':'us','PAR':'py','AUS':'au','TUR':'tr',
-  'GER':'de','CUW':'cw','CIV':'ci','ECU':'ec','NED':'nl','JPN':'jp','SWE':'se','TUN':'tn',
-  'BEL':'be','EGY':'eg','IRN':'ir','NZL':'nz','ESP':'es','CPV':'cv','KSA':'sa','URU':'uy',
-  'FRA':'fr','SEN':'sn','IRQ':'iq','NOR':'no','ARG':'ar','ALG':'dz','AUT':'at','JOR':'jo',
-  'POR':'pt','COD':'cd','UZB':'uz','COL':'co','ENG':'gb-eng','CRO':'hr','GHA':'gh','PAN':'pa'
-};
-function getFlagUrl(code) { return `https://flagcdn.com/w40/${FLAGS[code] || code.toLowerCase()}.png`; }
-
-function T(code, name, grupo, p1a11, p14a20) {
-  const stickers = [{ id: code + '1', label: 'BADGE' }];
-  p1a11.forEach((p, i) => stickers.push({ id: code + (i + 2), label: p.toUpperCase() }));
-  stickers.push({ id: code + '13', label: 'SQUAD', isPhoto: true });
-  p14a20.forEach((p, i) => stickers.push({ id: code + (i + 14), label: p.toUpperCase() }));
-  return { code, name, flag: getFlagUrl(code), grupo, stickers };
-}
-
+// Datos de ejemplo: 3 equipos con 3 cromos cada uno
 const ALBUM = [
-  { code: 'PANINI', name: 'Panini Logo', flag: null, grupo: 'Intro', stickers: [{ id: '00', label: 'PANINI LOGO' }] },
-  { code: 'FWC', name: 'FIFA World Cup', flag: null, grupo: 'Intro', stickers: [
-    { id: 'FWC1', label: 'WC LOGO' }, { id: 'FWC2', label: 'WC LOGO' },
-    { id: 'FWC3', label: 'OFFICIAL MASCOTS' }, { id: 'FWC4', label: 'OFFICIAL SLOGAN' },
-    { id: 'FWC5', label: 'OFFICIAL BALL' }, { id: 'FWC6', label: 'CANADA - HOST' },
-    { id: 'FWC7', label: 'MEXICO - HOST' }, { id: 'FWC8', label: 'USA - HOST' }
+  { code:'MEX', name:'Mexico', grupo:'A', stickers:[
+    {id:'MEX1',label:'BADGE'},{id:'MEX2',label:'LUIS MALAGÓN'},{id:'MEX3',label:'JOHAN VÁSQUEZ'}
   ]},
-  { code: 'CC', name: 'Coca-Cola', flag: null, grupo: 'Especiales', stickers: [
-    { id: 'CC1', label: 'LAMINE YAMAL' }, { id: 'CC2', label: 'JOSHUA KIMMICH' },
-    { id: 'CC3', label: 'EDUARDO CAMAVINGA' }, { id: 'CC4', label: 'JOŠKO GVARDIOL' },
-    { id: 'CC5', label: 'FEDERICO VALVERDE' }, { id: 'CC6', label: 'VIRGIL VAN DIJK' },
-    { id: 'CC7', label: 'ALPHONSO DAVIES' }, { id: 'CC8', label: 'RAÚL JIMÉNEZ' },
-    { id: 'CC9', label: 'WILLIAM SALIBA' }, { id: 'CC10', label: 'LAUTARO MARTÍNEZ' },
-    { id: 'CC11', label: 'HARRY KANE' }, { id: 'CC12', label: 'ANTONEE ROBINSON' }
+  { code:'KOR', name:'Korea Republic', grupo:'A', stickers:[
+    {id:'KOR1',label:'BADGE'},{id:'KOR2',label:'HYEONWOO JO'},{id:'KOR3',label:'SEUNGGYU KIM'}
   ]},
-  { code: 'WCH', name: 'World Cup History', flag: null, grupo: 'Especiales', stickers: [
-    { id: 'FWC9', label: 'ITALY 1934' }, { id: 'FWC10', label: 'URUGUAY 1950' },
-    { id: 'FWC11', label: 'GERMANY 1954' }, { id: 'FWC12', label: 'BRAZIL 1962' },
-    { id: 'FWC13', label: 'GERMANY 1974' }, { id: 'FWC14', label: 'ARGENTINA 1986' },
-    { id: 'FWC15', label: 'BRAZIL 1994' }, { id: 'FWC16', label: 'BRAZIL 2002' },
-    { id: 'FWC17', label: 'ITALY 2006' }, { id: 'FWC18', label: 'GERMANY 2014' },
-    { id: 'FWC19', label: 'ARGENTINA 2022' }
-  ]},
-  T('KOR','Korea Republic','A',['HYEONWOO JO','SEUNGGYU KIM','MINJAE KIM','YUMIN CHO','YOUNGWOO SEOL','HANBEOM LEE','TAESEOK LEE','MYUNGJAE LEE','JAESUNG LEE','INBEOM HWANG','KANGIN LEE'],['SEUNGHO PAIK','JENS CASTROP','DONGGYEONG LEE','GUESUNG CHO','HEUNGMIN SON','HEECHAN HWANG','HYEONGYU OH']),
-  T('RSA','South Africa','A',['RONWEN WILLIAMS','SIPHO CHAINE','AUBREY MODIBA','SAMUKELE KABINI','KHULISO MUDAU','KHULUMANI NDAMANE','SIYABONGA NGEZANA','KHULISO MUDAU','NKOSINATHI SIBISI','TEBOHO MOKOENA','THALENTE MBATHA'],['BATHUSI AUBAAS','YAYA SITHOLE','SIPHO MBULE','LYLE FOSTER','IQRAAM RAYNERS','MOHAU NKOTA','OSWIN APPOLLIS']),
-  T('MEX','Mexico','A',['LUIS MALAGÓN','JOHAN VÁSQUEZ','JORGE SÁNCHEZ','CÉSAR MONTES','JESÚS GALLARDO','ISRAEL REYES','DIEGO LAINEZ','CARLOS RODRÍGUEZ','EDSON ÁLVAREZ','ORBELIN PINEDA','MARCEL RUIZ'],['ÉRICK SÁNCHEZ','HIRVING LOZANO','SANTIAGO GIMÉNEZ','RAÚL JIMÉNEZ','ALEXIS VEGA','ROBERTO ALVARADO','CÉSAR HUERTA']),
-  T('CZE','Czechia','A',['MATĚJ KOVÁŘ','JINDŘICH STANĚK','LADISLAV KREJČÍ','VLADIMÍR COUFAL','JAROSLAV ZELENÝ','TOMÁŠ HOLEŠ','DAVID ZIMA','MICHAL SADÍLEK','LUKÁŠ PROVOD','LUKÁŠ ČERV','TOMÁŠ SOUČEK'],['PAVEL ŠULC','MATĚJ VYDRA','VASIL KUŠEJ','TOMÁŠ CHORÝ','VÁCLAV ČERNÝ','ADAM HLOŽEK','PATRIK SCHICK']),
-  T('CAN','Canada','B',['DAYNE ST. CLAIR','ALPHONSO DAVIES','ALISTAIR JOHNSTON','SAMUEL ADEKUGBE','RICHIE LARYEA','DEREK CORNELIUS','MOÏSE BOMBITO','KAMAL MILLER','STEPHEN EUSTÁQUIO','ISMAËL KONÉ','JONATHAN OSORIO'],['JACOB SHAFFELBURG','MATHIEU CHOINIÈRE','NIKO SIGUR','TAJON BUCHANAN','LIAM MILLAR','CYLE LARIN','JONATHAN DAVID']),
-  T('BIH','Bosnia-Herzegovina','B',['NIKOLA VASILJ','AMAR DEDIĆ','SEAD KOLAŠINAC','TARIK MUHAREMOVIĆ','NIHAD MUJAKIĆ','NIKOLA KATIĆ','AMIR HADŽIAHMETOVIĆ','BENJAMIN TAHIROVIĆ','ARMIN GIGOVIĆ','IVAN ŠUNJIĆ','IVAN BAŠIĆ'],['DŽENIS BURNIĆ','ESMIR BAJRAKTAREVIC','AMAR MEMIĆ','ERMEDIN DEMIROVIĆ','EDIN DŽEKO','SAMED BAŽDAR','HARIS TABAKOVIĆ']),
-  T('QAT','Qatar','B',['MESHAAL BARSHAM','SULTAN AL-BRAKE','LUCAS MENDES','HOMAM AHMED','BOUALEM KHOUKHI','PEDRO MIGUEL','TAREK SALMAN','MOHAMMED MANNAI','KARIM BOUDIAF','ASSIM MADIBO','AHMED FATEHI'],['MOHAMMED WAAD','ABDULAZIZ HATEM','HASSAN AL-HAYDOS','EDMILSON JUNIOR','AKRAM AFIF','AHMED AL-GANEHI','ALMOEZ ALI']),
-  T('SUI','Switzerland','B',['GREGOR KOBEL','YVON MVOGO','MANUEL AKANJI','RICARDO RODRÍGUEZ','NICO ELVEDI','AURÈLE AMENDA','SILVAN WIDMER','GRANIT XHAKA','DENIS ZAKARIA','REMO FREULER','FABIAN RIEDER'],['ARDON JASHARI','JOHAN MANZAMBI','MICHEL AEBISCHER','BREEL EMBOLO','RUBÉN VARGAS','DAN NDOYE','ZEKI AMDOUNI']),
-  T('BRA','Brazil','C',['ALISSON','BENTO','MARQUINHOS','ÉDER MILITÃO','GABRIEL MAGALHÃES','DANILO','WESLEY','LUCAS PAQUETÁ','CASEMIRO','BRUNO GUIMARÃES','LUIZ HENRIQUE'],['VINÍCIUS JÚNIOR','RODRYGO','JOÃO PEDRO','MATHEUS CUNHA','GABRIEL MARTINELLI','RAPHINHA','ESTÊVÃO']),
-  T('MAR','Morocco','C',['YASSINE BOUNOU','MUNIR EL KAJOUI','ACHRAF HAKIMI','NOUSSAIR MAZRAOUI','NAYEF AGUERD','ROMAIN SAÏSS','JAWAD EL YAMIQ','ADAM MASINA','SOFYAN AMRABAT','AZZEDINE OUNAHI','ELIESSE BEN SEGHIR'],['BILAL EL KHANNOUSS','ISMAEL SAIBARI','YOUSSEF EN-NESYRI','ABDE EZZALZOULI','SOUFIANE RAHIMI','BRAHIM DIAZ','AYOUB EL KAABI']),
-  T('HAI','Haiti','C',['JOHNY PLACIDE','CARLENS ARCUS','MARTIN EXPÉRIENCE','JEAN-KÉVIN DUVERNE','RICARDO ADÉ','DUKE LACROIX','GARVEN METUSALA','HANNES DELCROIX','LEVERTON PIERRE','DANLEY JEAN JACQUES','JEAN-RICNER BELLEGARDE'],['CHRISTOPHER ATTYS','DERRICK ETIENNE JR.','JOSUÉ CASIMIR','RUBEN PROVIDENCE','DUCKENS NAZON','LOUICIUS DEEDSON','FRANTZDY PIERROT']),
-  T('SCO','Scotland','C',['ANGUS GUNN','JACK HENDRY','KIERAN TIERNEY','AARON HICKEY','ANDY ROBERTSON','SCOTT MCKENNA','JOHN SOUTTAR','ANTHONY RALSTON','GRANT HANLEY','SCOTT MCTOMINAY','BILLY GILMOUR'],['LEWIS FERGUSON','RYAN CHRISTIE','KENNY MCLEAN','JOHN MCGINN','LYNDON DYKES','CHE ADAMS','BEN DOAK']),
-  T('USA','USA','D',['MATT FREESE','CHRIS RICHARDS','TIM REAM','MARK MCKENZIE','ALEX FREEMAN','ANTONEE ROBINSON','TYLER ADAMS','TANNER TESSMANN','WESTON MCKENNIE','CHRISTIAN ROLDAN','TIMOTHY WEAH'],['DIEGO LUNA','MALIK TILLMAN','CHRISTIAN PULISIC','BRENDEN AARONSON','RICARDO PEPI','HAJI WRIGHT','FOLARIN BALOGUN']),
-  T('PAR','Paraguay','D',['ROBERTO FERNÁNDEZ','ORLANDO GILL','DIEGO GÓMEZ','FABIÁN BALBUENA','JUAN JOSÉ CÁCERES','OMAR ALDERETE','JÚNIOR ALONSO','MATHÍAS VILLASANTI','DAMIÁN BOBADILLA','ANDRÉS CUBAS','MATÍAS GALARZA'],['JULIO ENCISO','ALEJANDRO ROMERO GAMARRA','MIGUEL ALMIRÓN','RAMÓN SOSA','ÁNGEL ROMERO','ANTONIO SANABRIA','GABRIEL ÁVALOS']),
-  T('AUS','Australia','D',['MATHEW RYAN','JOE GAUCI','HARRY SOUTTAR','ALESSANDRO CIRCATI','JORDAN BOS','AZIZ BEHICH','CAMERON BURGESS','LEWIS MILLER','MILOS DEGENEK','JACKSON IRVINE','RILEY MCGREE'],["AIDEN O'NEILL",'CONNOR METCALFE','PATRICK YAZBEK','CRAIG GOODWIN','KUSINI YENGI','NESTORY IRANKUNDA','MOHAMED TOURÉ']),
-  T('TUR','Turkey','D',['UĞURCAN ÇAKIR','MERT MÜLDÜR','ZEKI ÇELIK','ABDÜLKERIM BARDAKCI','ÇAĞLAR SÖYÜNCÜ','MERIH DEMIRAL','FERDI KADIOĞLU','KAAN AYHAN','ISMAIL YÜKSEK','HAKAN ÇALHANOĞLU','ORKUN KÖKÇÜ'],['ARDA GÜLER','IRFAN CAN KAHVECI','YUNUS AKGÜN','CAN UZUN','BARIŞ ALPER YILMAZ','KEREM AKTÜRKOĞLU','KENAN YILDIZ']),
-  T('GER','Germany','E',['MARC-ANDRÉ TER STEGEN','JONATHAN TAH','DAVID RAUM','NICO SCHLOTTERBECK','ANTONIO RÜDIGER','WALDEMAR ANTON','RIDLE BAKU','MAXIMILIAN MITTELSTÄDT','JOSHUA KIMMICH','FLORIAN WIRTZ','FELIX NMECHA'],['LEON GORETZKA','JAMAL MUSIALA','SERGE GNABRY','KAI HAVERTZ','LEROY SANÉ','KARIM ADEYEMI','NICK WOLTEMADE']),
-  T('CUW','Curacao','E',['ELOY ROOM','ARMANDO OBISPO','SHEREL FLORANUS','JURIEN GAARI','JOSHUA BRENET','ROSHON VAN EIJMA','SHURANDY SAMBO','LIVANO COMENENCIA','GODFRIED ROEMERATOE','JUNINHO BACUNA','LEANDRO BACUNA'],['TAHITH CHONG','KENJI GORRÉ','JEARL MARGARITHA','JÜRGEN LOCADIA','JEREMY ANTONISSE','GERVANE KASTANEER','SONTJE HANSEN']),
-  T('CIV','Côte d\'Ivoire','E',['YAHIA FOFANA','GHISLAIN KONAN','WILFRIED SINGO','ODILON KOSSOUNOU','EVAN NDICKA','WILLY BOLY','EMMANUEL AGBADOU','OUSMANE DIOMANDE','FRANCK KESSIÉ','SEKO FOFANA','IBRAHIM SANGARÉ'],['JEAN-PHILIPPE GBAMIN','AMAD DIALLO','SÉBASTIEN HALLER','SIMON ADINGRA','YAN DIOMANDE','EVANN GUESSAND','OUMAR DIAKITÉ']),
-  T('ECU','Ecuador','E',['HERNÁN GALÍNDEZ','GONZALO VALLE','PIERO HINCAPIÉ','PERVIS ESTUPIÑÁN','WILLIAN PACHO','ÁNGELO PRECIADO','JOEL ORDÓÑEZ','MOISÉS CAICEDO','ALAN FRANCO','KENDRY PÁEZ','PEDRO VITE'],['JOHN YEBOAH','LEONARDO CAMPANA','GONZALO PLATA','NILSON ANGULO','ALAN MINDA','KEVIN RODRÍGUEZ','ENNER VALENCIA']),
-  T('NED','Netherlands','F',['BART VERBRUGGEN','VIRGIL VAN DIJK','MICKY VAN DE VEN','JURRIËN TIMBER','DENZEL DUMFRIES','NATHAN AKÉ','JEREMIE FRIMPONG','JAN PAUL VAN HECKE','TIJJANI REIJNDERS','RYAN GRAVENBERCH','TEUN KOOPMEINERS'],['FRENKIE DE JONG','XAVI SIMONS','JUSTIN KLUIVERT','MEMPHIS DEPAY','DONYELL MALEN','WOUT WEGHORST','CODY GAKPO']),
-  T('JPN','Japan','F',['ZION SUZUKI','HENRY MOCHIZUKI','AYUMU SEKO','JUNNOSUKE SUZUKI','SHOGO TANIGUCHI','TSUYOSHI WATANABE','KAISHU SANO','YUKI SOMA','AO TANAKA','DAICHI KAMADA','TAKEFUSA KUBO'],['RITSU DOAN','KEITO NAKAMURA','TAKUMI MINAMINO','SHUTO MACHINO','JUNYA ITO','KOKI OGAWA','AYASE UEDA']),
-  T('SWE','Sweden','F',['VIKTOR JOHANSSON','ISAK HIEN','GABRIEL GUDMUNDSSON','EMIL HOLM','VICTOR LINDELÖF','GUSTAF LAGERBIELKE','LUCAS BERGVALL','HUGO LARSSON','JESPER KARLSTRÖM','YASIN AYARI','MATTIAS SVANBERG'],['DANIEL SVENSSON','KEN SEMA','ROONY BARDGHJI','DEJAN KULUSEVSKI','ANTHONY ELANGA','ALEXANDER ISAK','VIKTOR GYÖKERES']),
-  T('TUN','Tunisia','F',['BECHIR BEN SAÏD','AYMEN DAHMEN','VAN VALERY','MONTASSAR TALBI','YASSINE MERIAH','ALI ABDI','DYLAN BRONN','ELLYES SKHIRI','AÏSSA LAÏDOUNI','FERJANI SASSI','MOHAMED ALI BEN ROMDHANE'],['HANNIBAL MEJBRI','ELIAS ACHOURI','ELIAS SAAD','HAZEM MASTOURI','ISMAËL GHARBI','SAYFALLAH LTAIEF','NAÏM SLITI']),
-  T('BEL','Belgium','G',['THIBAUT COURTOIS','ARTHUR THEATE','TIMOTHY CASTAGNE','ZENO DEBAST','BRANDON MECHELE','MAXIM DE CUYPER','THOMAS MEUNIER','YOURI TIELEMANS','AMADOU ONANA','NICOLAS RASKIN','ALEXIS SAELEMAEKERS'],['HANS VANAKEN','KEVIN DE BRUYNE','JÉRÉMY DOKU','CHARLES DE KETELAERE','LEANDRO TROSSARD','LOÏS OPENDA','ROMELU LUKAKU']),
-  T('EGY','Egypt','G',['MOHAMED EL SHENAWY','MOHAMED HANY','MOHAMED HAMDY','YASSER IBRAHIM','KHALED SOBHI','RAMY RABIA','HOSSAM ABDELMAGUID','AHMED FATOUH','MARWAN ATTIA','AHMED SAYED ZIZO','HAMDY FATHY'],['MOHANAD LASHEEN','EMAM ASHOUR','OSAMA FAISAL','MOHAMED SALAH','MOSTAFA MOHAMED','MAHMOUD TREZEGUET','OMAR MARMOUSH']),
-  T('IRN','IR Iran','G',['ALIREZA BEIRANVAND','MORTEZA POURALIGANJI','EHSAN HAJSAFI','MILAD MOHAMMADI','SHOJAE KHALILZADEH','RAMIN REZAEIAN','HOSSEIN KANAANI','SADEGH MOHARRAMI','SALEH HARDANI','SAEID EZATOLAHI','SAMAN GHODDOS'],['OMID NOORAFKAN','ROOZBEH CHESHMI','MOHAMMAD MOHEBI','SARDAR AZMOUN','MEHDI TAREMI','ALIREZA JAHANBAKHSH','ALI GHOLIZADEH']),
-  T('NZL','New Zealand','G',['MAX CROCOMBE','ALEX PAULSEN','MICHAEL BOXALL','LIBERATO CACACE','TIM PAYNE','TYLER BINDON','FRANCIS DE VRIES','FINN SURMAN','JOE BELL','SARPREET SINGH','RYAN THOMAS'],['MATTHEW GARBETT','MARKO STAMENIĆ','BEN OLD','CHRIS WOOD','ELIJAH JUST','CALLUM MCCOWATT','KOSTA BARBAROUSES']),
-  T('ESP','Spain','H',['UNAI SIMÓN','ROBIN LE NORMAND','AYMERIC LAPORTE','DEAN HUIJSEN','PEDRO PORRO','DANI CARVAJAL','MARC CUCURELLA','MARTÍN ZUBIMENDI','RODRI','PEDRI','FABIÁN RUIZ'],['MIKEL MERINO','LAMINE YAMAL','DANI OLMO','NICO WILLIAMS','FERRAN TORRES','ÁLVARO MORATA','MIKEL OYARZABAL']),
-  T('CPV','Cabo Verde','H',['VOZINHA','LOGAN COSTA','PICO','DINEY','STEVEN MOREIRA','WAGNER PINA','JOÃO PAULO','YANNICK SEMEDO','KEVIN PINA','PATRICK ANDRADE','JAMIRO MONTEIRO'],['DEROY DUARTE','GARRY RODRIGUES','JOVANE CABRAL','RYAN MENDES','DAILON LIVRAMENTO','WILLY SEMEDO','BEBÉ']),
-  T('KSA','Saudi Arabia','H',['NAWAF AL-AQIDI','ABDULRAHMAN AL-SANBI','SAUD ABDULHAMID','NAWAF BOUWASHL','JIHAD THAKRI','MOTEB AL-HARBI','HASSAN ALTAMBAKTI','MUSAB AL-JUWAYR','ZIYAD AL-JOHANI','ABDULLAH AL-KHAIBARI','NASSER AL-DAWSARI'],['SALEH ABU ALSHAMAT','MARWAN AL-SAHAFI','SALEM AL-DAWSARI','ABDULRAHMAN AL-OBUD','FERAS AL-BRIKAN','SALEH AL-SHEHRI','ABDULLAH AL-HAMDAN']),
-  T('URU','Uruguay','H',['SERGIO ROCHET','SANTIAGO MELE','RONALD ARAÚJO','JOSÉ MARÍA GIMÉNEZ','SEBASTIÁN CÁCERES','MATHÍAS OLIVERA','GUILLERMO VARELA','NAHITAN NÁNDEZ','FEDERICO VALVERDE','GIORGIAN DE ARRASCAETA','RODRIGO BENTANCUR'],['MANUEL UGARTE','NICOLÁS DE LA CRUZ','MAXIMILIANO ARAÚJO','DARWIN NÚÑEZ','FEDERICO VIÑAS','RODRIGO AGUIRRE','FACUNDO PELLISTRI']),
-  T('FRA','France','I',['MIKE MAIGNAN','THÉO HERNANDEZ','WILLIAM SALIBA','JULES KOUNDÉ','IBRAHIMA KONATÉ','DAYOT UPAMECANO','LUCAS DIGNE','AURÉLIEN TCHOUAMÉNI','EDUARDO CAMAVINGA','MANU KONÉ','ADRIEN RABIOT'],['MICHAEL OLISE','OUSMANE DEMBÉLÉ','BRADLEY BARCOLA','DÉSIRÉ DOUÉ','KINGSLEY COMAN','HUGO EKITIKÉ','KYLIAN MBAPPÉ']),
-  T('SEN','Senegal','I',['ÉDOUARD MENDY','YEHVANN DIOUF','MOUSSA NIAKHATÉ','ABDOULAYE SECK','ISMAÏL JAKOBS','EL HADJI MALICK DIOUF','KALIDOU KOULIBALY','IDRISSA GANA GUEYE','PAPE MATAR SARR','PAPE GUEYE','HABIB DIARRA'],['LAMINE CAMARA','SADIO MANÉ','ISMAÏLA SARR','BOULAYE DIA','ILIMAN NDIAYE','NICOLAS JACKSON','KRÉPIN DIATTA']),
-  T('IRQ','Iraq','I',['JALAL HASSAN','REBIN SULAKA','HUSSEIN ALI','AKAM HASHEM','MERCHAS DOSKI','ZAID TAHSEEN','MANAF YOUNIS','ZIDANE IQBAL','AMIR AL-AMMARI','IBRAHIM BAYESH','ALI JASIM'],['YOUSSEF AMYN','AIMAR SHER','MARKO FARJI','OSAMA RASHID','ALI AL-HAMADI','AYMEN HUSSEIN','MOHANAD ALI']),
-  T('NOR','Norway','I',['ØRJAN NYLAND','JULIAN RYERSON','LEO ØSTIGÅRD','KRISTOFFER AJER','MARCUS HOLMGREN PEDERSEN','DAVID MØLLER WOLFE','TORBJØRN HEGGEM','MORTEN THORSBY','MARTIN ØDEGAARD','SANDER BERGE','ANDREAS SCHJELDERUP'],['PATRICK BERG','ERLING HAALAND','ALEXANDER SØRLOTH','ARON DØNNUM','JØRGEN STRAND LARSEN','ANTONIO NUSA','OSCAR BOBB']),
-  T('ARG','Argentina','J',['EMILIANO MARTÍNEZ','NAHUEL MOLINA','CRISTIAN ROMERO','NICOLÁS OTAMENDI','NICOLÁS TAGLIAFICO','LEONARDO BALERDI','ENZO FERNÁNDEZ','ALEXIS MAC ALLISTER','RODRIGO DE PAUL','EXEQUIEL PALACIOS','LEANDRO PAREDES'],['NICO PAZ','FRANCO MASTANTUONO','NICO GONZÁLEZ','LIONEL MESSI','LAUTARO MARTÍNEZ','JULIÁN ÁLVAREZ','GIULIANO SIMEONE']),
-  T('ALG','Algeria','J',['ALEXIS GUENDOUZ','RAMY BENSEBAINI','YOUCEF ATAL','RAYAN AÏT-NOURI','MOHAMED AMINE TOUGAI','AÏSSA MANDI','ISMAËL BENNACER','HOUSSEM AOUAR','HICHAM BOUDAOUI','RAMIZ ZERROUKI','NABIL BENTALEB'],['FARÈS CHAÏBI','RIYAD MAHREZ','SAÏD BENRAHMA','ANIS HADJ MOUSSA','AMINE GOUIRI','BAGHDAD BOUNEDJAH','MOHAMED AMOURA']),
-  T('AUT','Austria','J',['ALEXANDER SCHLAGER','PATRICK PENTZ','DAVID ALABA','KEVIN DANSO','PHILIPP LIENHART','STEFAN POSCH','PHILLIPP MWENE','ALEXANDER PRASS','XAVER SCHLAGER','MARCEL SABITZER','KONRAD LAIMER'],['FLORIAN GRILLITSCH','NICOLAS SEIWALD','ROMANO SCHMID','PATRICK WIMMER','CHRISTOPH BAUMGARTNER','MICHAEL GREGORITSCH','MARKO ARNAUTOVIĆ']),
-  T('JOR','Jordan','J',['YAZEED ABULAILA','IHSAN HADDAD','MOHAMMAD ABU HASHISH','YAZAN AL-ARAB','ABDALLAH NASIB','SALEEM OBAID','MOHAMMAD ABUALNADI','IBRAHIM SAADEH','NIZAR AL-RASHDAN','NOOR AL-RAWABDEH','MOHANNAD ABU TAHA'],['AMER JAMOUS','MOUSA AL-TAAMARI','YAZAN AL-NAIMAT','MAHMOUD AL-MARDI','ALI OLWAN','MOHAMMAD ABU ZRAYQ','IBRAHIM SABRA']),
-  T('POR','Portugal','K',['DIOGO COSTA','JOSÉ SÁ','RÚBEN DIAS','JOÃO CANCELO','DIOGO DALOT','NUNO MENDES','GONÇALO INÁCIO','BERNARDO SILVA','BRUNO FERNANDES','RÚBEN NEVES','VITINHA'],['JOÃO NEVES','CRISTIANO RONALDO','FRANCISCO TRINCÃO','JOÃO FÉLIX','GONÇALO RAMOS','PEDRO NETO','RAFAEL LEÃO']),
-  T('COD','Congo DR','K',['LIONEL MPASI','AARON WAN-BISSAKA','AXEL TUANZEBE','ARTHUR MASUAKU','CHANCEL MBEMBA','JORIS KAYEMBE','CHARLES PICKEL',"NGAL'AYEL MUKAU",'EDO KAYEMBE','SAMUEL MOUTOUSSAMY','NOAH SADIKI'],['THÉO BONGONDA','MESCHACK ELIA','YOANE WISSA','BRIAN CIPENGA','FISTON MAYELE','CÉDRIC BAKAMBU','NATHANAËL MBUKU']),
-  T('UZB','Uzbekistan','K',['UTKIR YUSUPOV','FARRUKH SAYFIEV','SHERZOD NASRULLAEV','UMAR ESHMURODOV','HUSNIDDIN ALIQULOV','RUSTAM ASHURMATOV','KHOJIAKBAR ALIJONOV','ABDUKODIR KHUSANOV','ODILJON HAMROBEKOV','OTABEK SHUKUROV','JAMSHID ISKANDEROV'],['AZIZBEK TURGUNBOEV','KHOJIMAT ERKINOV','ELDOR SHOMURODOV','OSTON URUNOV','JALOLIDDIN MASHARIPOV','IGOR SERGEEV','ABBOSBEK FAYZULLAEV']),
-  T('COL','Colombia','K',['CAMILO VARGAS','DAVID OSPINA','DÁVINSON SÁNCHEZ','YERRY MINA','DANIEL MUÑOZ','JOHAN MOJICA','JHON LUCUMÍ','SANTIAGO ARIAS','JEFFERSON LERMA','KEVIN CASTAÑO','RICHARD RÍOS'],['JAMES RODRÍGUEZ','JUAN FERNANDO QUINTERO','JORGE CARRASCAL','JHON ARIAS','JHON CÓRDOBA','LUIS SUÁREZ','LUIS DÍAZ']),
-  T('ENG','England','L',['JORDAN PICKFORD','JOHN STONES','MARC GUÉHI','EZRI KONSA','TRENT ALEXANDER-ARNOLD','REECE JAMES','DAN BURN','JORDAN HENDERSON','DECLAN RICE','JUDE BELLINGHAM','COLE PALMER'],['MORGAN ROGERS','ANTHONY GORDON','PHIL FODEN','BUKAYO SAKA','HARRY KANE','MARCUS RASHFORD','OLLIE WATKINS']),
-  T('CRO','Croatia','L',['DOMINIK LIVAKOVIĆ','DUJE ĆALETA-CAR','JOŠKO GVARDIOL','JOSIP STANIŠIĆ','LUKA VUŠKOVIĆ','JOSIP ŠUTALO','KRISTIJAN JAKIĆ','LUKA MODRIĆ','MATEO KOVAČIĆ','MARTIN BATURINA','LOVRO MAJER'],['MARIO PAŠALIĆ','PETAR SUČIĆ','IVAN PERIŠIĆ','MARCO PAŠALIĆ','ANTE BUDIMIR','ANDREJ KRAMARIĆ','FRANJO IVANOVIĆ']),
-  T('GHA','Ghana','L',['LAWRENCE ATI-ZIGI','TARIQ LAMPTEY','MOHAMMED SALISU','ALIDU SEIDU','ALEXANDER DJIKU','GIDEON MENSAH','CALEB YIRENKYI','ABDUL FATAWU ISSAHAKU','THOMAS PARTEY','SALIS ABDUL SAMED','KAMALDEEN SULEMANA'],['MOHAMMED KUDUS','IÑAKI WILLIAMS','JORDAN AYEW','ANDRÉ AYEW','JOSEPH PAINTSIL','OSMAN BUKARI','ANTOINE SEMENYO']),
-  T('PAN','Panama','L',['ORLANDO MOSQUERA','LUIS MEJÍA','FIDEL ESCOBAR','ANDRÉS ANDRADE','MICHAEL AMIR MURILLO','ERIC DAVIS','JOSÉ CÓRDOBA','CÉSAR BLACKMAN','CRISTIAN MARTÍNEZ','ANÍBAL GODOY','ADALBERTO CARRASQUILLA'],['ÉDGAR BÁRCENAS','CARLOS HARVEY','ISMAEL DÍAZ','JOSÉ FAJARDO','CECILIO WATERMAN','JOSÉ LUIS RODRÍGUEZ','ALBERTO QUINTERO'])
+  { code:'CZE', name:'Czechia', grupo:'A', stickers:[
+    {id:'CZE1',label:'BADGE'},{id:'CZE2',label:'MATĚJ KOVÁŘ'},{id:'CZE3',label:'JINDŘICH STANĚK'}
+  ]}
 ];
 
-const TOTAL = ALBUM.reduce((a, t) => a + t.stickers.length, 0);
+let state = {};
+
+function loadLocal() {
+  const saved = localStorage.getItem('test-album');
+  if (saved) {
+    try { state = JSON.parse(saved); } catch(e) {}
+  }
+}
+
+function saveLocal() { localStorage.setItem('test-album', JSON.stringify(state)); }
+
+function get(id) { return state[id] || 0; }
+function set(id, v) {
+  if (v === 0) delete state[id];
+  else state[id] = v;
+  saveLocal();
+}
 
 function render() {
   const mc = document.getElementById('mc');
   mc.innerHTML = '';
-  const q = document.getElementById('qi').value.toLowerCase().trim();
-  const isViewingSelf = (currentView === 'self');
-  const wished = JSON.parse(localStorage.getItem('panini-wished')||'[]');
   let lastGrp = '';
 
   ALBUM.forEach(team => {
-    const o = team.stickers.filter(s => get(s.id, state) >= 1).length;
-    const total = team.stickers.length;
-    const pct = Math.round(o / total * 100);
-    const complete = o === total;
-    const nm = !q || team.name.toLowerCase().includes(q) || team.code.toLowerCase().includes(q);
-    const sm = !q || team.stickers.some(s => s.label.toLowerCase().includes(q) || s.id.toLowerCase().includes(q));
-
-    if (!nm && !sm) return;
-    if (currentFilter === 'missing' && o === total) return;
-    if (currentFilter === 'owned' && o === 0) return;
-    if (currentFilter === 'rep' && !team.stickers.some(s => get(s.id, state) === 2)) return;
-
-    if (!q && team.grupo && team.grupo !== lastGrp) {
+    if (team.grupo !== lastGrp) {
       lastGrp = team.grupo;
       const gl = document.createElement('div');
       gl.className = 'grp';
-      gl.textContent = team.grupo === 'Intro' ? '— INTRODUCCIÓN —' : team.grupo === 'Especiales' ? '— SECCIONES ESPECIALES —' : '— GRUPO ' + team.grupo + ' —';
+      gl.textContent = '— GRUPO ' + team.grupo + ' —';
       mc.appendChild(gl);
     }
 
     const sec = document.createElement('div');
-    sec.className = 'ts' + (complete ? ' complete' : '');
-    sec.dataset.code = team.code;
+    sec.textContent = team.name;
+    sec.style.fontWeight = 'bold';
+    mc.appendChild(sec);
 
-    const flagHTML = team.flag ? `<img src="${team.flag}" class="flag-img" alt="${team.code}" loading="lazy">` : '';
-
-    sec.innerHTML = `<div class="th">
-      <span class="tn">${flagHTML}${team.name}</span>
-      <span class="tc">${team.code}</span>
-      <div class="tpm">
-        <div class="mb"><div class="mf" style="width:${pct}%"></div></div>
-        <span style="color:${complete ? 'var(--green)' : 'var(--muted)'}">${o}/${total}</span>
-      </div>
-      <span class="chev">▼</span>
-    </div><div class="sg"></div>`;
-
-    const grid = sec.querySelector('.sg');
     team.stickers.forEach(s => {
-      const st = get(s.id, state);
-      const mySt = get(s.id, selfState);
-      let otherSt = 0;
-      if (compareWith && linkedStates[compareWith]) {
-        otherSt = get(s.id, linkedStates[compareWith]);
-      }
-      
-      if (currentFilter === 'interchangeable') {
-        if (isViewingSelf) return;
-        if (!(st === 2 && mySt === 0)) return;
-      }
-      if (currentFilter === 'missingFromOther') {
-        if (!isViewingSelf) return;
-        if (!(otherSt >= 1 && mySt === 0)) return;
-      }
-      if (currentFilter === 'missing' && st > 0) return;
-      if (currentFilter === 'owned' && st === 0) return;
-      if (currentFilter === 'rep' && st !== 2) return;
-      if (q && !nm && !s.label.toLowerCase().includes(q) && !s.id.toLowerCase().includes(q)) return;
-
+      const st = get(s.id);
       const el = document.createElement('div');
-      let classes = 'sk';
-      if (st === 1) classes += ' owned';
-      else if (st === 2) classes += ' rep';
-      if (wished.includes(s.id)) classes += ' wished';
-      if ((!isViewingSelf && st === 2 && mySt === 0) || (currentFilter === 'missingFromOther' && otherSt >= 1 && mySt === 0)) {
-        classes += ' interchangeable';
-      }
-      el.className = classes;
-
-      el.innerHTML = `<span class="sn">${s.id}</span>${s.foil ? '<span class="st">FOIL</span>' : s.isPhoto ? '<span class="st" style="background:linear-gradient(90deg,#3b82f6,#6366f1)">FOTO</span>' : ''}<span class="sl">${s.label}</span>`;
-
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (!isViewingSelf) {
-          if (st === 2 && mySt === 0) {
-            toggleWish(s.id);
-            el.classList.toggle('wished');
-          } else if (st === 2 && mySt > 0) {
-            toast('ℹ️ Ya tienes este cromo');
-          } else {
-            toast('ℹ️ Solo puedes marcar tus propios cromos');
-          }
-          return;
-        }
+      el.className = 'sk' + (st === 1 ? ' owned' : st === 2 ? ' rep' : '');
+      el.textContent = s.label;
+      el.addEventListener('click', () => {
         let currentStatus = 0;
         if (el.classList.contains('owned')) currentStatus = 1;
         else if (el.classList.contains('rep')) currentStatus = 2;
         const newStatus = (currentStatus + 1) % 3;
-        el.classList.remove('owned', 'rep', 'wished');
-        if (newStatus === 1) {
-          el.classList.add('owned');
-          toast('✅ ¡Conseguido!');
-        } else if (newStatus === 2) {
-          el.classList.add('rep');
-          toast('🔁 Repetido');
-        } else {
-          toast('❌ Eliminado');
-        }
-        if (newStatus === 0) {
-          delete selfState[s.id];
-        } else {
-          selfState[s.id] = newStatus;
-        }
-        saveLocal();
-        if (isOnline) pushToCloud();
-        state = { ...selfState };
-        rH(sec);
-        updateStats();
+        el.classList.remove('owned', 'rep');
+        if (newStatus === 1) el.classList.add('owned');
+        else if (newStatus === 2) el.classList.add('rep');
+        set(s.id, newStatus);
+        toast(newStatus === 1 ? '✅' : newStatus === 2 ? '🔁' : '❌');
       });
-
-      grid.appendChild(el);
+      mc.appendChild(el);
     });
-
-    const th = sec.querySelector('.th');
-    th.addEventListener('click', () => {
-      if (sec.classList.contains('open')) {
-        sec.classList.remove('open');
-        openSections.delete(team.code);
-      } else {
-        sec.classList.add('open');
-        openSections.add(team.code);
-      }
-    });
-
-    if (expanded || openSections.has(team.code) || (q && sm && !nm)) {
-      sec.classList.add('open');
-    }
-
-    mc.appendChild(sec);
   });
-
-  updateStats();
 }
 
-function rH(sec) {
-  const t = ALBUM.find(x => x.code === sec.dataset.code); if (!t) return;
-  const o = t.stickers.filter(s => get(s.id, state) >= 1).length, total = t.stickers.length;
-  sec.classList.toggle('complete', o === total);
-  const mf = sec.querySelector('.mf'), sp = sec.querySelector('.tpm span');
-  if (mf) mf.style.width = Math.round(o / total * 100) + '%';
-  if (sp) { sp.textContent = `${o}/${total}`; sp.style.color = o === total ? 'var(--green)' : 'var(--muted)'; }
-}
-
-function stats() {
-  const st = currentView === 'self' ? selfState : state;
-  let o = 0, r = 0;
-  Object.values(st).forEach(v => { if (v >= 1) o++; if (v === 2) r++; });
-  return { o, r, m: TOTAL - o };
-}
-function updateStats() {
-  const { o, r, m } = stats();
-  document.getElementById('so').textContent = o;
-  document.getElementById('sm').textContent = m;
-  document.getElementById('sr').textContent = r;
-  const pct = Math.round(o / TOTAL * 1000) / 10;
-  document.getElementById('pb').style.width = pct + '%';
-  document.getElementById('pl').textContent = `${o} / ${TOTAL} cromos (${pct}%)`;
-  if (currentView !== 'self') updateMatchBadge();
-}
-
-document.querySelectorAll('.ctrl .fb[data-f]').forEach(b => b.addEventListener('click', function(e) {
-  const filterType = this.dataset.f;
-  currentFilter = filterType;
-  document.querySelectorAll('.ctrl .fb[data-f]').forEach(x => x.classList.remove('on'));
-  this.classList.add('on');
-  render();
-}));
-
-document.getElementById('btnMissingFromOther').addEventListener('click', () => {
-  if (!compareWith) { toast('⚠️ No hay álbum vinculado'); return; }
-  currentFilter = 'missingFromOther';
-  document.querySelectorAll('.ctrl .fb[data-f]').forEach(x => x.classList.remove('on'));
-  document.getElementById('btnMissingFromOther').classList.add('on');
-  render();
-});
-
-document.getElementById('bex').addEventListener('click', () => { 
-  expanded = !expanded; 
-  document.getElementById('bex').textContent = expanded ? 'Colapsar todo' : 'Expandir todo'; 
-  if (expanded) openSections.clear();
-  else openSections.clear();
-  render();
-});
-
-document.getElementById('brs').addEventListener('click', () => { 
-  if(!confirm('¿Seguro que quieres borrar todo tu progreso?')) return; 
-  selfState = {}; saveLocal(); state = {}; 
-  if(isOnline) pushToCloud(); render(); toast('🗑 Reiniciado'); 
-});
-
-document.getElementById('qi').addEventListener('input', render);
-document.getElementById('syncCode').addEventListener('click', () => { navigator.clipboard.writeText(syncId); toast('📋 Código copiado'); });
-document.getElementById('btnLink').addEventListener('click', () => { document.getElementById('modalLink').style.display = 'flex'; });
-
-function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-
-loadLocal();
-currentView = 'self';
-state = { ...selfState };
-
-(async () => {
-  const linked = JSON.parse(localStorage.getItem(LINKED_KEY)||'[]');
-  for (let code of linked) { await loadLinkedAlbum(code); }
-  const keys = Object.keys(linkedStates);
-  if (keys.length > 0 && !compareWith) compareWith = keys[0];
-  updateViewSelector();
-  updateMissingFromOtherButton();
-  render();
-})().catch(e => {
-  document.getElementById('mc').innerHTML = '<p style="color:red;">Error al cargar álbumes vinculados: ' + e.message + '</p>';
-});
-
-initSync().catch(e => {
-  document.getElementById('mc').innerHTML = '<p style="color:red;">Error al iniciar sincronización: ' + e.message + '</p>';
-});
-
-let tt;
 function toast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 1600);
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1000);
 }
+
+function diagnosticar() {
+  try {
+    loadLocal();
+    render();
+    toast('Carga OK');
+  } catch(e) {
+    document.getElementById('mc').textContent = 'Error: ' + e.message;
+  }
+}
+
+// Auto-cargar
+window.addEventListener('DOMContentLoaded', () => {
+  diagnosticar();
+});
 </script>
 </body>
 </html>

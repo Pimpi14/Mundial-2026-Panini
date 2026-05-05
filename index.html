@@ -72,6 +72,13 @@
   .sl{font-size:.52rem;color:var(--muted);line-height:1.2;word-break:break-word;text-align:center}
   .st{background:linear-gradient(90deg,var(--accent),#f59e0b);color:#000;font-size:.46rem;font-weight:700;border-radius:3px;padding:1px 3px}
   .st2{background:linear-gradient(90deg,#3b82f6,#6366f1);color:#fff;font-size:.46rem;font-weight:700;border-radius:3px;padding:1px 3px}
+  .remove-btn{
+    position:absolute; top:2px; left:2px; width:16px; height:16px;
+    background:var(--red); color:#fff; border:none; border-radius:50%;
+    font-size:10px; line-height:14px; text-align:center; cursor:pointer;
+    display:none; z-index:5;
+  }
+  .sk.owned .remove-btn, .sk.rep .remove-btn{display:block}
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--card);border:1px solid var(--accent);border-radius:30px;padding:7px 16px;font-size:.78rem;font-weight:600;z-index:9999;transition:transform .3s;pointer-events:none;white-space:nowrap}
   .toast.show{transform:translateX(-50%) translateY(0)}
   .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:10000;display:flex;align-items:center;justify-content:center}
@@ -81,28 +88,6 @@
   .modal input:focus{border-color:var(--accent)}
   .modal button{background:var(--accent);color:#000;border:none;border-radius:var(--r);padding:8px 20px;font-weight:700;cursor:pointer;margin:5px}
   .modal button.cancel{background:var(--card);color:var(--text);border:1px solid var(--border)}
-  /* Botón de quitar */
-  .remove-btn {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 16px;
-    height: 16px;
-    background: var(--red);
-    color: #fff;
-    border: none;
-    border-radius: 50%;
-    font-size: 10px;
-    line-height: 14px;
-    text-align: center;
-    cursor: pointer;
-    display: none;
-    z-index: 5;
-  }
-  .sk.owned .remove-btn,
-  .sk.rep .remove-btn {
-    display: block;
-  }
   @media(max-width:480px){.logo{font-size:1.15rem}.sg{grid-template-columns:repeat(auto-fill,minmax(50px,1fr))}.flag-img{width:20px;height:14px}}
 </style>
 </head>
@@ -116,6 +101,7 @@
   <button class="sync-btn" id="btnUnlink" style="display:none">🗑️ Quitar vinculación</button>
   <span style="color:var(--muted)">| Viendo:</span>
   <div class="view-selector"><select id="viewSelect"><option value="self">Mi álbum</option></select></div>
+  <button class="sync-btn" id="btnRefreshLinked" disabled title="Actualizar álbum vinculado">🔄 Actualizar</button>
   <span class="match-badge" id="matchBadge" style="display:none"></span>
 </div>
 
@@ -180,30 +166,22 @@ let linkedStates={};
 let currentView='self';
 let compareWith=null;
 let syncId=null;
-let unsubscribe=null;
 let isOnline=false;
 let openSections=new Set();
 let filter='all';
 let expanded=false;
 
-// Lista de IDs pendientes de escritura en Firebase
-const pendingWrites=new Set();
-
 function loadLocal(){const s=localStorage.getItem(KEY_LOCAL);if(s){try{selfState=JSON.parse(s);state={...selfState};}catch(e){}}}
 function saveLocal(){localStorage.setItem(KEY_LOCAL,JSON.stringify(selfState));}
 
-function updateSticker(id,newVal){
-  // Actualizar local
-  if(newVal===0) delete selfState[id];
-  else selfState[id]=newVal;
+// Función para guardar un sticker y subir a Firebase
+function saveSticker(id,val){
+  if(val===0) delete selfState[id];
+  else selfState[id]=val;
   saveLocal();
   state={...selfState};
-  // Sincronizar con Firebase (ignorar mientras se escribe)
   if(isOnline){
-    pendingWrites.add(id);
-    db.collection('albums').doc(syncId).set({stickers:selfState,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})
-    .then(()=>{pendingWrites.delete(id);})
-    .catch(()=>{pendingWrites.delete(id);});
+    db.collection('albums').doc(syncId).set({stickers:selfState,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(e=>console.error(e));
   }
 }
 
@@ -213,32 +191,27 @@ async function initSync(){
   syncId=localStorage.getItem(SYNC_ID_KEY);
   if(!syncId){syncId=generateCode();localStorage.setItem(SYNC_ID_KEY,syncId);}
   document.getElementById('syncCode').textContent=syncId;
-  auth.signInAnonymously().then(()=>{listenToCloud();}).catch(e=>{setSyncStatus(false);});
+  try{
+    await auth.signInAnonymously();
+    // Cargar estado inicial desde la nube (solo una vez)
+    const doc=await db.collection('albums').doc(syncId).get();
+    if(doc.exists){
+      const cloud=doc.data().stickers||{};
+      selfState={...selfState,...cloud};
+      saveLocal();
+      state={...selfState};
+      render();
+    } else {
+      // Si no hay documento, subir el local
+      saveSticker('00',0); // tocar para crear documento
+    }
+    setSyncStatus(true);
+  } catch(e){
+    setSyncStatus(false);
+  }
 }
 
 function generateCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let r='';for(let i=0;i<6;i++)r+=c[Math.floor(Math.random()*c.length)];return r;}
-
-function listenToCloud(){
-  if(unsubscribe)unsubscribe();
-  unsubscribe=db.collection('albums').doc(syncId).onSnapshot(doc=>{
-    if(doc.exists){
-      const cloud=doc.data().stickers||{};
-      // Ignorar cambios en IDs que están siendo escritos por este dispositivo
-      for(let id of pendingWrites){
-        if(cloud.hasOwnProperty(id)){
-          cloud[id]=selfState[id]||0;
-        }
-      }
-      selfState={...selfState,...cloud};
-      saveLocal();
-      if(currentView==='self')state={...selfState};
-      render();setSyncStatus(true);
-    } else {
-      updateSticker('00',0); // inicializar
-      setSyncStatus(true);
-    }
-  },()=>setSyncStatus(false));
-}
 
 function setSyncStatus(online){
   isOnline=online;
@@ -246,6 +219,7 @@ function setSyncStatus(online){
   document.getElementById('syncText').textContent=online?'Conectado':'Sin conexión';
 }
 
+// Vincular otro álbum
 async function linkDevice(){
   const code=document.getElementById('linkCode').value.trim().toUpperCase();
   if(!code||code.length<4){toast('⚠️ Código inválido');return;}
@@ -255,8 +229,9 @@ async function linkDevice(){
   if(!linked.includes(code)){linked.push(code);localStorage.setItem(LINKED_KEY,JSON.stringify(linked));}
   await loadLinkedAlbum(code);
   updateViewSelector();
-  if(!compareWith)compareWith=code;
+  if(!compareWith) compareWith=code;
   updateMissingBtn();
+  updateRefreshButton();
 }
 
 async function loadLinkedAlbum(code){
@@ -274,7 +249,9 @@ function removeLinkedAlbum(code){
   delete linkedStates[code];
   if(currentView===code){currentView='self';state={...selfState};}
   if(compareWith===code){const r=Object.keys(linkedStates);compareWith=r.length>0?r[0]:null;}
-  updateViewSelector();render();toast('🗑️ Vinculación eliminada');
+  updateViewSelector();
+  updateRefreshButton();
+  render();toast('🗑️ Vinculación eliminada');
 }
 
 function updateViewSelector(){
@@ -287,13 +264,38 @@ function updateViewSelector(){
   if(currentView!=='self'){btnU.style.display='inline-block';btnU.onclick=()=>removeLinkedAlbum(currentView);}
   else{btnU.style.display='none';}
   updateMissingBtn();
+  updateRefreshButton();
 }
+
+function updateRefreshButton(){
+  const btn=document.getElementById('btnRefreshLinked');
+  btn.disabled=(currentView==='self');
+}
+
+document.getElementById('btnRefreshLinked').addEventListener('click',async ()=>{
+  if(currentView!=='self'&&linkedStates[currentView]!==undefined){
+    await loadLinkedAlbum(currentView);
+    state={...(linkedStates[currentView]||{})};
+    render();
+    updateMatchBadge();
+    toast('🔄 Actualizado');
+  }
+});
 
 document.getElementById('viewSelect').addEventListener('change',function(e){
   const val=e.target.value;
-  if(val==='self'){currentView='self';state={...selfState};}
-  else{currentView=val;state={...(linkedStates[val]||{})};compareWith=val;}
-  render();updateMatchBadge();
+  if(val==='self'){
+    currentView='self';
+    state={...selfState};
+  } else {
+    currentView=val;
+    state={...(linkedStates[val]||{})};
+    compareWith=val;
+  }
+  updateViewSelector();
+  render();
+  updateMatchBadge();
+  updateRefreshButton();
 });
 
 function updateMatchBadge(){
@@ -458,7 +460,7 @@ function render(){
       removeBtn.addEventListener('click',(e)=>{
         e.stopPropagation();
         if(!isViewingSelf)return;
-        updateSticker(s.id,0);
+        saveSticker(s.id,0);
         state={...selfState};
         el.classList.remove('owned','rep');
         toast('🗑️ Eliminado');
@@ -480,7 +482,7 @@ function render(){
         if(cur===0) next=1;
         else if(cur===1) next=0;
         else next=0; // si es repetido, volver a 0
-        updateSticker(s.id,next);
+        saveSticker(s.id,next);
         state={...selfState};
         el.classList.remove('owned','rep');
         if(next===1){el.classList.add('owned');toast('✅ ¡Conseguido!');}
@@ -496,7 +498,7 @@ function render(){
         const cur=selfState[s.id]||0;
         if(cur===0)return; // no se puede marcar repetido si no se tiene
         const next=cur===2?1:2;
-        updateSticker(s.id,next);
+        saveSticker(s.id,next);
         state={...selfState};
         el.classList.remove('owned','rep');
         if(next===1){el.classList.add('owned');toast('✅ Repetido quitado');}
@@ -565,7 +567,7 @@ document.getElementById('bex').addEventListener('click',()=>{
 document.getElementById('brs').addEventListener('click',()=>{
   if(!confirm('¿Seguro que quieres borrar todo tu progreso?'))return;
   selfState={};saveLocal();state={};
-  if(isOnline) updateSticker('00',0);
+  if(isOnline) db.collection('albums').doc(syncId).set({stickers:{},updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   render();toast('🗑 Reiniciado');
 });
 document.getElementById('qi').addEventListener('input',render);
@@ -592,6 +594,7 @@ state={...selfState};
   if(keys.length>0&&!compareWith)compareWith=keys[0];
   updateViewSelector();
   updateMissingBtn();
+  updateRefreshButton();
   render();
 })();
 

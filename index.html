@@ -165,15 +165,27 @@ let openSections=new Set();
 let filter='all';
 let expanded=false;
 
+// 🔒 Protección contra sobrescritura de la nube
+const pendingChanges=new Set();
+
 function loadLocal(){const s=localStorage.getItem(KEY_LOCAL);if(s){try{selfState=JSON.parse(s);state={...selfState};}catch(e){}}}
 function saveLocal(){localStorage.setItem(KEY_LOCAL,JSON.stringify(selfState));}
 
 function setStickerState(id,newVal){
+  pendingChanges.add(id);
   if(newVal===0){delete selfState[id];}
   else{selfState[id]=newVal;}
   saveLocal();
   state={...selfState};
-  if(isOnline) pushToCloud();
+  if(isOnline) {
+    pushToCloud().then(() => {
+      pendingChanges.delete(id);
+    }).catch(() => {
+      pendingChanges.delete(id);
+    });
+  } else {
+    pendingChanges.delete(id);
+  }
 }
 
 const get=(id,st)=>(st||state)[id]||0;
@@ -192,8 +204,13 @@ function listenToCloud(){
   unsubscribe=db.collection('albums').doc(syncId).onSnapshot(doc=>{
     if(doc.exists){
       const cloud=doc.data().stickers||{};
-      // Eliminamos el cromo 00 si existe para limpiar suciedad de pruebas
-      if(cloud['00']){delete cloud['00'];}
+      // Filtrar los cambios pendientes para no sobrescribirlos
+      for(let id of pendingChanges){
+        if(cloud.hasOwnProperty(id)){
+          // Restaurar el valor local recién guardado
+          cloud[id] = selfState[id] !== undefined ? selfState[id] : (delete cloud[id], undefined);
+        }
+      }
       selfState={...selfState,...cloud};
       saveLocal();
       if(currentView==='self')state={...selfState};
@@ -205,8 +222,8 @@ function listenToCloud(){
 }
 
 function pushToCloud(){
-  if(!syncId)return;
-  db.collection('albums').doc(syncId).set({stickers:selfState,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(e=>console.error(e));
+  if(!syncId)return Promise.resolve();
+  return db.collection('albums').doc(syncId).set({stickers: selfState, updatedAt: firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
 }
 
 function setSyncStatus(online){
@@ -430,14 +447,8 @@ function render(){
         // Rotación: 0 → 1 → 2 → 0
         const cur=selfState[s.id]||0;
         const next=(cur+1)%3;
-        if(next===0){
-          delete selfState[s.id];
-        } else {
-          selfState[s.id]=next;
-        }
-        saveLocal();
-        state={...selfState};
-        if(isOnline) pushToCloud();
+        setStickerState(s.id,next);  // usa la función que protege con pendingChanges
+        state={...selfState};         // actualizar state para el renderizado
 
         // Actualizar clases visuales
         el.className='sk';

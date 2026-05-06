@@ -682,52 +682,11 @@ function render() {
         classes += ' interchangeable';
       }
       el.className = classes;
-      el.dataset.sid = s.id;  // guardar ID
+      el.dataset.sid = s.id;  // ← AÑADIR ESTO
 
       el.innerHTML = `<span class="sn">${s.id}</span>${s.foil ? '<span class="st">FOIL</span>' : s.isPhoto ? '<span class="st" style="background:linear-gradient(90deg,#3b82f6,#6366f1)">FOTO</span>' : ''}<span class="sl">${s.label}</span><span class="reset-x">✕</span>`;
-
+      // NO añadir ningún addEventListener aquí
       grid.appendChild(el);
-    });
-
-    // DELEGADO DE EVENTOS: un único listener para todo el grid
-    grid.addEventListener('click', (e) => {
-      if (!isViewingSelf) {
-        toast('ℹ️ Solo puedes modificar tu propio álbum');
-        return;
-      }
-      const el = e.target.closest('.sk');
-      if (!el) return;
-      const id = el.dataset.sid;
-      const isReset = e.target.classList.contains('reset-x');
-
-      // Leer estado actual desde las clases
-      const cur = el.classList.contains('rep') ? 2
-                : el.classList.contains('owned') ? 1 : 0;
-
-      let next;
-      if (isReset) {
-        next = 0;
-      } else {
-        if (cur === 0) next = 1;
-        else if (cur === 1) next = 2;
-        else next = 2; // ya está en rep, solo X lo quita
-      }
-
-      // Actualizar clases visuales
-      el.classList.remove('owned', 'rep');
-      if (next === 1) { el.classList.add('owned'); toast('✅ ¡Conseguido!'); }
-      else if (next === 2) { el.classList.add('rep'); toast('🔁 Repetido'); }
-      else { toast('❌ Quitado'); }
-
-      // Guardar
-      if (next === 0) delete selfState[id];
-      else selfState[id] = next;
-      saveLocal();
-      state = { ...selfState };
-      if (isOnline) pushToCloud();
-
-      rH(sec);
-      updateStats();
     });
 
     const th = sec.querySelector('.th');
@@ -750,6 +709,43 @@ function render() {
 
   updateStats();
 }
+
+// ========== LISTENER GLOBAL (DELEGADO) EN EL MAIN ==========
+document.getElementById('mc').addEventListener('click', function(e) {
+  if (currentView !== 'self') {
+    toast('ℹ️ Solo puedes modificar tu propio álbum');
+    return;
+  }
+  const el = e.target.closest('.sk');
+  if (!el) return;
+  const id = el.dataset.sid;
+  if (!id) return;
+
+  const cur = el.classList.contains('rep') ? 2
+            : el.classList.contains('owned') ? 1 : 0;
+  const isReset = e.target.classList.contains('reset-x');
+
+  let next;
+  if (isReset) { next = 0; }
+  else if (cur === 0) { next = 1; }
+  else if (cur === 1) { next = 2; }
+  else { return; } // cur===2, solo X lo quita
+
+  el.classList.remove('owned', 'rep');
+  if (next === 1) { el.classList.add('owned'); toast('✅ ¡Conseguido!'); }
+  else if (next === 2) { el.classList.add('rep'); toast('🔁 Repetido'); }
+  else { toast('❌ Quitado'); }
+
+  if (next === 0) delete selfState[id];
+  else selfState[id] = next;
+  saveLocal();
+  state = { ...selfState };
+  if (isOnline) pushToCloud();
+
+  const sec = el.closest('.ts');
+  if (sec) rH(sec);
+  updateStats();
+});
 
 function rH(sec) {
   const t = ALBUM.find(x => x.code === sec.dataset.code); if (!t) return;

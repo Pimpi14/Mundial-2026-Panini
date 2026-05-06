@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Panini Mundial 2026 – Mi Álbum Digital</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
   :root {
     --bg: #0a0e1a; --surface: #111827; --card: #1a2235; --border: #243050;
@@ -81,6 +82,8 @@
   }
   .fb:hover { border-color:var(--accent); color:var(--accent); }
   .fb.on { background:var(--accent); color:#000; border-color:var(--accent); }
+  .fb.pdf-btn { background:#dc2626; border-color:#dc2626; color:#fff; }
+  .fb.pdf-btn:hover { background:#b91c1c; border-color:#b91c1c; }
 
   .grp { font-size:.65rem; font-weight:700; color:var(--muted); letter-spacing:2px; padding:10px 10px 4px; text-transform:uppercase; }
   .leg { display:flex; gap:9px; flex-wrap:wrap; padding:5px 12px; background:var(--surface); border-bottom:1px solid var(--border); font-size:.68rem; color:var(--muted); align-items:center; }
@@ -119,6 +122,106 @@
   .toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(60px); background:var(--card); border:1px solid var(--accent); border-radius:30px; padding:7px 16px; font-size:.78rem; font-weight:600; z-index:9999; transition:transform .3s; pointer-events:none; white-space:nowrap; }
   .toast.show { transform:translateX(-50%) translateY(0); }
 
+  /* Estilos para el PDF */
+  .pdf-container {
+    font-family: 'Outfit', 'Segoe UI', sans-serif;
+    background: white;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .pdf-header {
+    text-align: center;
+    margin-bottom: 30px;
+    border-bottom: 3px solid #e8b84b;
+    padding-bottom: 15px;
+  }
+  .pdf-header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    color: #1a2235;
+    letter-spacing: 2px;
+  }
+  .pdf-header h1 span { color: #e8b84b; }
+  .pdf-header p {
+    color: #64748b;
+    font-size: 12px;
+    margin-top: 5px;
+  }
+  .pdf-team {
+    margin-bottom: 25px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .pdf-team-title {
+    background: #1a2235;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .pdf-team-title img {
+    width: 30px;
+    height: 20px;
+    object-fit: cover;
+    border-radius: 3px;
+  }
+  .pdf-team-title h3 {
+    font-size: 16px;
+    margin: 0;
+  }
+  .pdf-stickers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+  }
+  .pdf-sticker {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px 4px;
+    text-align: center;
+    background: #f8f9fa;
+  }
+  .pdf-sticker-id {
+    font-family: monospace;
+    font-size: 12px;
+    font-weight: bold;
+    color: #e8b84b;
+    background: #1a2235;
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+  }
+  .pdf-sticker-label {
+    font-size: 9px;
+    color: #333;
+    word-break: break-word;
+  }
+  .pdf-empty {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+    font-style: italic;
+  }
+  @media print {
+    body * {
+      visibility: hidden;
+    }
+    .pdf-container, .pdf-container * {
+      visibility: visible;
+    }
+    .pdf-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+    }
+  }
+
   @media (max-width:480px) {
     .logo { font-size:1.15rem; }
     .sg { grid-template-columns:repeat(auto-fill,minmax(50px,1fr)); }
@@ -131,8 +234,9 @@
 <div class="info-bar">
   <span class="local-badge">💾 100% LOCAL</span>
   <span class="backup-info">📌 Los datos se guardan automáticamente en tu navegador</span>
-  <button class="fb" id="btnExport" style="padding:2px 8px; font-size:.65rem;">📤 Exportar</button>
-  <button class="fb" id="btnImport" style="padding:2px 8px; font-size:.65rem;">📥 Importar</button>
+  <button class="fb" id="btnExport">📤 Exportar copia</button>
+  <button class="fb" id="btnImport">📥 Importar copia</button>
+  <button class="fb pdf-btn" id="btnPdfRepetidos">📄 Exportar repetidos a PDF</button>
 </div>
 
 <header>
@@ -172,7 +276,7 @@
 <script>
 // ================= ESTADO LOCAL =================
 const KEY = 'panini-wc26-local';
-let selfState = {};        // mis cromos locales
+let selfState = {};
 let openSections = new Set();
 let currentFilter = 'all';
 let expanded = false;
@@ -190,23 +294,19 @@ const get = (id) => selfState[id] || 0;
 
 // --- FUNCIÓN SET OPTIMIZADA ---
 function set(id, v, element) {
-  // Guardar el cambio en los datos
   if (v === 0) delete selfState[id]; 
   else selfState[id] = v;
   
   saveLocal();
 
-  // ACTUALIZACIÓN VISUAL DIRECTA
   if (element) {
     element.classList.remove('owned', 'rep');
     if (v === 1) element.classList.add('owned');
     if (v === 2) element.classList.add('rep');
   }
 
-  // Actualizar solo los números y la barra de arriba
   updateStats();
   
-  // Actualizar el encabezado del equipo
   const sec = element ? element.closest('.ts') : null;
   if (sec) updateTeamHeader(sec);
 }
@@ -246,6 +346,93 @@ function importData() {
     reader.readAsText(file);
   };
   input.click();
+}
+
+// ================= EXPORTAR REPETIDOS A PDF =================
+function exportRepetidosToPDF() {
+  // Filtrar solo los cromos repetidos (valor 2)
+  const repetidosIds = Object.keys(selfState).filter(id => selfState[id] === 2);
+  
+  if (repetidosIds.length === 0) {
+    toast('ℹ️ No tienes cromos repetidos para exportar');
+    return;
+  }
+
+  // Crear estructura HTML para el PDF
+  const pdfHtml = document.createElement('div');
+  pdfHtml.className = 'pdf-container';
+  
+  // Header del PDF
+  pdfHtml.innerHTML = `
+    <div class="pdf-header">
+      <h1>PANINI <span>MUNDIAL 2026™</span></h1>
+      <p>Lista de cromos repetidos para intercambiar</p>
+      <p>Generado: ${new Date().toLocaleString()}</p>
+      <p style="color:#22c55e; margin-top:10px;">📊 Total de repetidos: ${repetidosIds.length}</p>
+    </div>
+  `;
+
+  // Recorrer el álbum en el mismo orden que en la app
+  ALBUM.forEach(team => {
+    // Obtener los stickers repetidos de este equipo
+    const teamRepetidos = team.stickers.filter(s => selfState[s.id] === 2);
+    
+    if (teamRepetidos.length === 0) return;
+
+    // Crear sección del equipo
+    const teamDiv = document.createElement('div');
+    teamDiv.className = 'pdf-team';
+    
+    const flagHTML = team.flag ? `<img src="${team.flag}" alt="${team.code}" style="width:30px;height:20px;object-fit:cover;border-radius:3px;">` : '';
+    
+    teamDiv.innerHTML = `
+      <div class="pdf-team-title">
+        ${flagHTML}
+        <h3>${team.name} (${team.code})</h3>
+        <span style="margin-left:auto; font-size:12px; background:#22c55e; padding:2px 8px; border-radius:12px;">${teamRepetidos.length} repetidos</span>
+      </div>
+      <div class="pdf-stickers-grid" id="pdf-grid-${team.code}">
+      </div>
+    `;
+    
+    const grid = teamDiv.querySelector(`#pdf-grid-${team.code}`);
+    
+    // Añadir cada sticker repetido en orden
+    teamRepetidos.forEach(sticker => {
+      const stickerDiv = document.createElement('div');
+      stickerDiv.className = 'pdf-sticker';
+      stickerDiv.innerHTML = `
+        <div class="pdf-sticker-id">${sticker.id}</div>
+        <div class="pdf-sticker-label">${sticker.label}</div>
+      `;
+      grid.appendChild(stickerDiv);
+    });
+    
+    pdfHtml.appendChild(teamDiv);
+  });
+
+  // Si no hay repetidos en ningún equipo (por si acaso)
+  if (pdfHtml.children.length === 1) {
+    pdfHtml.innerHTML += '<div class="pdf-empty">No hay cromos repetidos para mostrar</div>';
+  }
+
+  // Configuración para html2pdf
+  const opt = {
+    margin: [0.5, 0.5, 0.5, 0.5],
+    filename: `panini-repetidos-${new Date().toISOString().slice(0,19)}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, letterRendering: true, useCORS: true },
+    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+  };
+
+  // Generar PDF
+  toast('📄 Generando PDF de repetidos...');
+  html2pdf().set(opt).from(pdfHtml).save().then(() => {
+    toast('✅ PDF generado correctamente');
+  }).catch(err => {
+    console.error('Error al generar PDF:', err);
+    toast('❌ Error al generar PDF');
+  });
 }
 
 // ================= FLAGS Y JUGADORES =================
@@ -448,7 +635,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!el) return;
     const id = el.dataset.sid;
 
-    // CICLO DE 3 CLICS
     const cur = selfState[id] || 0;
     let next;
 
@@ -511,6 +697,7 @@ document.getElementById('brs').addEventListener('click', () => {
 // Exportar / Importar
 document.getElementById('btnExport').addEventListener('click', exportData);
 document.getElementById('btnImport').addEventListener('click', importData);
+document.getElementById('btnPdfRepetidos').addEventListener('click', exportRepetidosToPDF);
 
 // Búsqueda
 document.getElementById('qi').addEventListener('input', render);
@@ -521,7 +708,7 @@ function toast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(tt);
-  tt = setTimeout(() => t.classList.remove('show'), 1600);
+  tt = setTimeout(() => t.classList.remove('show'), 2000);
 }
 
 // Arranque

@@ -682,54 +682,52 @@ function render() {
         classes += ' interchangeable';
       }
       el.className = classes;
+      el.dataset.sid = s.id;  // guardar ID
 
-      // Incluir botón X y contenido
       el.innerHTML = `<span class="sn">${s.id}</span>${s.foil ? '<span class="st">FOIL</span>' : s.isPhoto ? '<span class="st" style="background:linear-gradient(90deg,#3b82f6,#6366f1)">FOTO</span>' : ''}<span class="sl">${s.label}</span><span class="reset-x">✕</span>`;
 
-      // Evento para la X
-      const resetBtn = el.querySelector('.reset-x');
-      resetBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (!isViewingSelf) return;
-        applyStateChange(el, s.id, 0);
-        rH(sec);
-        updateStats();
-        toast('❌ Quitado');
-      });
-
-      // Evento para el sticker (clic normal) - CORREGIDO: estado desde clases
-      el.addEventListener('click', (e) => {
-        if (e.target === resetBtn) return;
-        e.stopPropagation();
-        if (!isViewingSelf) {
-          // Leer estado desde las clases para álbumes ajenos
-          const isRep = el.classList.contains('rep');
-          if (isRep && get(s.id, selfState) === 0) {
-            toggleWish(s.id);
-            el.classList.toggle('wished');
-          } else if (isRep && get(s.id, selfState) > 0) {
-            toast('ℹ️ Ya tienes este cromo');
-          } else {
-            toast('ℹ️ Solo puedes marcar tus propios cromos');
-          }
-          return;
-        }
-        // Leer estado actual desde las clases del elemento (no desde selfState)
-        const currentVal = el.classList.contains('rep') ? 2 : el.classList.contains('owned') ? 1 : 0;
-        if (currentVal === 0) {
-          applyStateChange(el, s.id, 1);
-          toast('✅ ¡Conseguido!');
-        } else if (currentVal === 1) {
-          applyStateChange(el, s.id, 2);
-          toast('🔁 Repetido');
-        } else if (currentVal === 2) {
-          // No pasa nada, solo se quita con X
-        }
-        rH(sec);
-        updateStats();
-      });
-
       grid.appendChild(el);
+    });
+
+    // DELEGADO DE EVENTOS: un único listener para todo el grid
+    grid.addEventListener('click', (e) => {
+      if (!isViewingSelf) {
+        toast('ℹ️ Solo puedes modificar tu propio álbum');
+        return;
+      }
+      const el = e.target.closest('.sk');
+      if (!el) return;
+      const id = el.dataset.sid;
+      const isReset = e.target.classList.contains('reset-x');
+
+      // Leer estado actual desde las clases
+      const cur = el.classList.contains('rep') ? 2
+                : el.classList.contains('owned') ? 1 : 0;
+
+      let next;
+      if (isReset) {
+        next = 0;
+      } else {
+        if (cur === 0) next = 1;
+        else if (cur === 1) next = 2;
+        else next = 2; // ya está en rep, solo X lo quita
+      }
+
+      // Actualizar clases visuales
+      el.classList.remove('owned', 'rep');
+      if (next === 1) { el.classList.add('owned'); toast('✅ ¡Conseguido!'); }
+      else if (next === 2) { el.classList.add('rep'); toast('🔁 Repetido'); }
+      else { toast('❌ Quitado'); }
+
+      // Guardar
+      if (next === 0) delete selfState[id];
+      else selfState[id] = next;
+      saveLocal();
+      state = { ...selfState };
+      if (isOnline) pushToCloud();
+
+      rH(sec);
+      updateStats();
     });
 
     const th = sec.querySelector('.th');
@@ -751,20 +749,6 @@ function render() {
   });
 
   updateStats();
-}
-
-function applyStateChange(el, id, newVal) {
-  el.classList.remove('owned', 'rep', 'wished');
-  if (newVal === 0) {
-    delete selfState[id];
-  } else {
-    selfState[id] = newVal;
-    if (newVal === 1) el.classList.add('owned');
-    else if (newVal === 2) el.classList.add('rep');
-  }
-  saveLocal();
-  if (isOnline) pushToCloud();
-  state = { ...selfState };
 }
 
 function rH(sec) {

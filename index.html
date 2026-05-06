@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Panini Mundial 2026 – Mi Álbum Digital</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <style>
   :root {
     --bg: #0a0e1a; --surface: #111827; --card: #1a2235; --border: #243050;
@@ -38,30 +35,24 @@
   .dot { width:7px; height:7px; border-radius:50%; }
   .dg { background:var(--green); } .dr { background:var(--red); } .da { background:var(--accent); }
 
-  .sync-bar {
+  .info-bar {
     background:var(--surface); border-bottom:1px solid var(--border);
     padding:6px 14px; display:flex; align-items:center; gap:8px;
     font-size:.72rem; flex-wrap:wrap;
+    justify-content:space-between;
   }
-  .sync-code {
-    background:var(--card); border:1px solid var(--accent); border-radius:15px;
-    padding:3px 10px; font-weight:700; color:var(--accent);
-    font-family:monospace; letter-spacing:1px; cursor:pointer;
+  .local-badge {
+    background:var(--card);
+    border:1px solid var(--accent);
+    border-radius:15px;
+    padding:3px 10px;
+    font-weight:700;
+    color:var(--accent);
+    font-size:.7rem;
   }
-  .sync-btn {
-    background:var(--card); border:1px solid var(--border); border-radius:var(--r);
-    color:var(--text); font-family:'Outfit',sans-serif; font-size:.68rem;
-    font-weight:600; padding:4px 8px; cursor:pointer; transition:all .2s;
-  }
-  .sync-btn:hover { border-color:var(--accent); color:var(--accent); }
-  .sync-status { display:flex; align-items:center; gap:4px; font-size:.65rem; color:var(--muted); }
-  .linked-badge {
-    background:var(--accent2);
-    color:#fff;
-    border-radius:10px;
-    padding:2px 8px;
+  .backup-info {
+    color:var(--muted);
     font-size:.65rem;
-    font-weight:600;
   }
 
   .pw { background:var(--card); border-bottom:1px solid var(--border); padding:7px 14px; }
@@ -90,7 +81,6 @@
   }
   .fb:hover { border-color:var(--accent); color:var(--accent); }
   .fb.on { background:var(--accent); color:#000; border-color:var(--accent); }
-  .fb.interchangeable-active { background:#10b981; color:#000; border-color:#10b981; }
 
   .grp { font-size:.65rem; font-weight:700; color:var(--muted); letter-spacing:2px; padding:10px 10px 4px; text-transform:uppercase; }
   .leg { display:flex; gap:9px; flex-wrap:wrap; padding:5px 12px; background:var(--surface); border-bottom:1px solid var(--border); font-size:.68rem; color:var(--muted); align-items:center; }
@@ -121,37 +111,13 @@
   .sk.owned::after { content:'✓'; position:absolute; top:2px; right:4px; font-size:.56rem; color:var(--green); font-weight:700; }
   .sk.rep { background:#1a1f0d; border-color:#84cc1688; }
   .sk.rep::after { content:'×2'; position:absolute; top:2px; right:4px; font-size:.54rem; color:#84cc16; font-weight:700; }
-  .sk.interchangeable {
-    border-color: #10b981 !important;
-    border-style: dashed !important;
-    background: #0a2e1a;
-    animation: pulse 1s infinite;
-  }
-  .sk.interchangeable::before {
-    content: '🔄';
-    position: absolute;
-    top: 2px;
-    left: 4px;
-    font-size: .5rem;
-  }
-  @keyframes pulse {
-    0%, 100% { border-color: #10b981; }
-    50% { border-color: #34d399; }
-  }
   .sn { font-family:'Bebas Neue',sans-serif; font-size:.86rem; color:var(--muted); line-height:1; }
   .sk.owned .sn, .sk.rep .sn { color:var(--text); }
   .sl { font-size:.52rem; color:var(--muted); line-height:1.2; word-break:break-word; text-align:center; }
+  .st { background:linear-gradient(90deg,var(--accent),#f59e0b); color:#000; font-size:.46rem; font-weight:700; border-radius:3px; padding:1px 3px; }
 
   .toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(60px); background:var(--card); border:1px solid var(--accent); border-radius:30px; padding:7px 16px; font-size:.78rem; font-weight:600; z-index:9999; transition:transform .3s; pointer-events:none; white-space:nowrap; }
   .toast.show { transform:translateX(-50%) translateY(0); }
-
-  .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:10000; display:flex; align-items:center; justify-content:center; }
-  .modal { background:var(--surface); border:1px solid var(--accent); border-radius:var(--r); padding:20px; max-width:400px; width:90%; text-align:center; }
-  .modal h3 { margin-bottom:12px; color:var(--accent); }
-  .modal input { width:100%; background:var(--card); border:1px solid var(--border); border-radius:var(--r); color:var(--text); padding:8px 12px; font-family:monospace; font-size:1.2rem; text-align:center; letter-spacing:3px; margin:10px 0; outline:none; }
-  .modal input:focus { border-color:var(--accent); }
-  .modal button { background:var(--accent); color:#000; border:none; border-radius:var(--r); padding:8px 20px; font-weight:700; cursor:pointer; margin:5px; }
-  .modal button.cancel { background:var(--card); color:var(--text); border:1px solid var(--border); }
 
   @media (max-width:480px) {
     .logo { font-size:1.15rem; }
@@ -162,16 +128,11 @@
 </head>
 <body>
 
-<div class="sync-bar" id="syncBar">
-  <span class="sync-status">
-    <span id="syncText">💾 Modo LOCAL</span>
-  </span>
-  <span style="color:var(--muted);">| Mi código:</span>
-  <span class="sync-code" id="syncCode" title="Pulsa para copiar">-----</span>
-  <button class="sync-btn" id="btnSaveCloud">💾 Guardar en la nube</button>
-  <button class="sync-btn" id="btnLoadCloud">📥 Cargar desde nube</button>
-  <button class="sync-btn" id="btnLinkAlbum">🔗 Vincular otro álbum</button>
-  <span id="linkedInfo" style="display:none;" class="linked-badge"></span>
+<div class="info-bar">
+  <span class="local-badge">💾 100% LOCAL</span>
+  <span class="backup-info">📌 Los datos se guardan automáticamente en tu navegador</span>
+  <button class="fb" id="btnExport" style="padding:2px 8px; font-size:.65rem;">📤 Exportar</button>
+  <button class="fb" id="btnImport" style="padding:2px 8px; font-size:.65rem;">📥 Importar</button>
 </div>
 
 <header>
@@ -194,7 +155,6 @@
   <button class="fb" data-f="missing">Me faltan</button>
   <button class="fb" data-f="owned">Tengo</button>
   <button class="fb" data-f="rep">Repetidos</button>
-  <button class="fb" id="btnInterchangeable" data-f="interchangeable">🔄 Intercambiables</button>
   <button class="fb" id="bex">Expandir todo</button>
   <button class="fb" id="brs" style="color:#ef4444;border-color:#ef4444">Reiniciar</button>
 </div>
@@ -204,48 +164,18 @@
   <span><span class="lb" style="background:#0d2e1a;border-color:#22c55e88"></span> Lo tengo</span>
   <span><span class="lb" style="background:#1a1f0d;border-color:#84cc1688"></span> Repetido</span>
   <span><span class="lb" style="background:var(--bg);border-color:var(--border)"></span> No lo tengo</span>
-  <span><span class="lb" style="background:#0a2e1a;border-color:#10b981"></span> 🔄 Intercambiable</span>
 </div>
 
 <main id="mc"></main>
 <div class="toast" id="toast"></div>
 
-<div class="modal-overlay" id="modalLink" style="display:none;">
-  <div class="modal">
-    <h3>🔗 Vincular otro álbum</h3>
-    <p style="font-size:.8rem;color:var(--muted);">Introduce el código del álbum para ver intercambiables:</p>
-    <input type="text" id="linkCode" maxlength="8" placeholder="EJ: ABC123">
-    <br>
-    <button onclick="linkAlbum()">Vincular</button>
-    <button class="cancel" onclick="closeModal('modalLink')">Cancelar</button>
-  </div>
-</div>
-
 <script>
-// ================= FIREBASE CONFIG =================
-const firebaseConfig = {
-  apiKey: "AIzaSyBtlBxfWT0QDSQ0W1_82D0zCpiCZD4yuwE",
-  authDomain: "panini-mundial-2026-53d4c.firebaseapp.com",
-  projectId: "panini-mundial-2026-53d4c",
-  storageBucket: "panini-mundial-2026-53d4c.firebasestorage.app",
-  messagingSenderId: "899949264065",
-  appId: "1:899949264065:web:8fc51d817a5eef7418e840"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const auth = firebase.auth();
-
 // ================= ESTADO LOCAL =================
 const KEY = 'panini-wc26-local';
-let selfState = {};           // mis cromos locales
-let linkedState = {};         // álbum vinculado (cromos de otra persona)
-let linkedCode = null;        // código del álbum vinculado
-let currentView = 'self';
+let selfState = {};        // mis cromos locales
 let openSections = new Set();
 let currentFilter = 'all';
 let expanded = false;
-let syncId = null;
 
 function loadLocal() {
   const saved = localStorage.getItem(KEY);
@@ -253,12 +183,6 @@ function loadLocal() {
     try {
       selfState = JSON.parse(saved);
     } catch(e) {}
-  }
-  const savedLinked = localStorage.getItem('panini-linked-code');
-  if (savedLinked) {
-    linkedCode = savedLinked;
-    document.getElementById('linkedInfo').textContent = `🔗 Vinculado: ${linkedCode}`;
-    document.getElementById('linkedInfo').style.display = 'inline-block';
   }
 }
 function saveLocal() { localStorage.setItem(KEY, JSON.stringify(selfState)); }
@@ -287,117 +211,41 @@ function set(id, v, element) {
   if (sec) updateTeamHeader(sec);
 }
 
-// ================= CÓDIGOS Y NUBE =================
-function generateCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
-  return code;
+// ================= EXPORTAR / IMPORTAR =================
+function exportData() {
+  const dataStr = JSON.stringify(selfState, null, 2);
+  const blob = new Blob([dataStr], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `panini-backup-${new Date().toISOString().slice(0,19)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('📤 Álbum exportado');
 }
 
-async function initSync() {
-  syncId = localStorage.getItem('panini-sync-id');
-  if (!syncId) {
-    syncId = generateCode();
-    localStorage.setItem('panini-sync-id', syncId);
-  }
-  document.getElementById('syncCode').textContent = syncId;
-  
-  try {
-    await auth.signInAnonymously();
-    toast('✅ Conectado a la nube');
-  } catch(e) {
-    toast('⚠️ Sin conexión a la nube');
-  }
-}
-
-async function saveToCloud() {
-  if (!syncId) return;
-  try {
-    await db.collection('albums').doc(syncId).set({
-      stickers: selfState,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    toast('💾 Álbum guardado en la nube');
-  } catch(e) {
-    toast('❌ Error al guardar');
-  }
-}
-
-async function loadFromCloud() {
-  const code = document.getElementById('loadCode').value.trim().toUpperCase();
-  if (!code) { toast('⚠️ Introduce un código'); return; }
-  closeModal('modalLoad');
-  
-  try {
-    const doc = await db.collection('albums').doc(code).get();
-    if (doc.exists) {
-      const cloudData = doc.data().stickers || {};
-      selfState = { ...cloudData };
-      saveLocal();
-      render();
-      toast(`📥 Álbum ${code} cargado correctamente`);
-    } else {
-      toast('⚠️ No se encontró ese álbum');
-    }
-  } catch(e) {
-    toast('❌ Error al cargar');
-  }
-}
-
-// ================= VINCULAR ÁLBUM (INTERCAMBIABLES) =================
-async function linkAlbum() {
-  const code = document.getElementById('linkCode').value.trim().toUpperCase();
-  if (!code) { toast('⚠️ Introduce un código'); return; }
-  if (code === syncId) { toast('⚠️ No puedes vincular tu propio álbum'); return; }
-  
-  closeModal('modalLink');
-  
-  try {
-    const doc = await db.collection('albums').doc(code).get();
-    if (doc.exists) {
-      linkedState = doc.data().stickers || {};
-      linkedCode = code;
-      localStorage.setItem('panini-linked-code', code);
-      document.getElementById('linkedInfo').textContent = `🔗 Vinculado: ${code}`;
-      document.getElementById('linkedInfo').style.display = 'inline-block';
-      toast(`✅ Álbum ${code} vinculado. Usa "Intercambiables" para ver los cromos que te pueden dar.`);
-      
-      // Si estamos en modo intercambiables, refrescar
-      if (currentFilter === 'interchangeable') {
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const imported = JSON.parse(event.target.result);
+        selfState = imported;
+        saveLocal();
         render();
+        toast('📥 Álbum importado correctamente');
+      } catch(err) {
+        toast('❌ Error al importar');
       }
-    } else {
-      toast('⚠️ Ese álbum aún no tiene datos guardados');
-    }
-  } catch(e) {
-    toast('❌ Error al vincular álbum');
-  }
-}
-
-function unlinkAlbum() {
-  if (!confirm('¿Quieres desvincular el álbum?')) return;
-  linkedState = {};
-  linkedCode = null;
-  localStorage.removeItem('panini-linked-code');
-  document.getElementById('linkedInfo').style.display = 'none';
-  if (currentFilter === 'interchangeable') {
-    currentFilter = 'all';
-    document.querySelectorAll('.fb[data-f]').forEach(x => x.classList.remove('on'));
-    document.getElementById('btnInterchangeable').classList.remove('interchangeable-active');
-    document.querySelector('.fb[data-f="all"]').classList.add('on');
-  }
-  render();
-  toast('🔗 Álbum desvinculado');
-}
-
-// Verificar si un cromo es intercambiable (ellos tienen repetido Y yo no lo tengo)
-function isInterchangeable(stickerId) {
-  if (!linkedCode || !linkedState) return false;
-  const otherValue = linkedState[stickerId] || 0;
-  const myValue = selfState[stickerId] || 0;
-  // Ellos tienen repetido (2) y yo no lo tengo (0)
-  return (otherValue === 2 && myValue === 0);
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 }
 
 // ================= FLAGS Y JUGADORES =================
@@ -510,16 +358,9 @@ function render() {
     const sm = !q || team.stickers.some(s => s.label.toLowerCase().includes(q) || s.id.toLowerCase().includes(q));
 
     if (!nm && !sm) return;
-    
-    // Filtros específicos
     if (currentFilter === 'missing' && o === total) return;
     if (currentFilter === 'owned' && o === 0) return;
     if (currentFilter === 'rep' && !team.stickers.some(s => get(s.id) === 2)) return;
-    if (currentFilter === 'interchangeable') {
-      // Verificar si algún cromo de este equipo es intercambiable
-      const hasInterchangeable = team.stickers.some(s => isInterchangeable(s.id));
-      if (!hasInterchangeable) return;
-    }
 
     if (!q && team.grupo && team.grupo !== lastGrp) {
       lastGrp = team.grupo;
@@ -548,20 +389,16 @@ function render() {
     const grid = sec.querySelector('.sg');
     team.stickers.forEach(s => {
       const st = get(s.id);
-      const interchangeable = isInterchangeable(s.id);
       
-      // Filtros
       if (currentFilter === 'missing' && st > 0) return;
       if (currentFilter === 'owned' && st === 0) return;
       if (currentFilter === 'rep' && st !== 2) return;
-      if (currentFilter === 'interchangeable' && !interchangeable) return;
       if (q && !nm && !s.label.toLowerCase().includes(q) && !s.id.toLowerCase().includes(q)) return;
 
       const el = document.createElement('div');
       let classes = 'sk';
       if (st === 1) classes += ' owned';
       else if (st === 2) classes += ' rep';
-      if (interchangeable) classes += ' interchangeable';
       el.className = classes;
       el.dataset.sid = s.id;
       el.innerHTML = `<span class="sn">${s.id}</span>${s.isPhoto ? '<span class="st" style="background:linear-gradient(90deg,#3b82f6,#6366f1)">FOTO</span>' : ''}<span class="sl">${s.label}</span>`;
@@ -587,18 +424,6 @@ function render() {
   });
 
   updateStats();
-  
-  // Mostrar contador de intercambiables si estamos en ese modo
-  if (currentFilter === 'interchangeable' && linkedCode) {
-    const interchangeableCount = ALBUM.reduce((count, team) => {
-      return count + team.stickers.filter(s => isInterchangeable(s.id)).length;
-    }, 0);
-    if (interchangeableCount === 0) {
-      toast('ℹ️ No hay cromos intercambiables de momento');
-    } else {
-      toast(`🔄 Tienes ${interchangeableCount} cromos que te puede dar ${linkedCode}`);
-    }
-  }
 }
 
 function updateTeamHeader(sec) {
@@ -662,24 +487,8 @@ document.querySelectorAll('.fb[data-f]').forEach(b => b.addEventListener('click'
   currentFilter = this.dataset.f;
   document.querySelectorAll('.fb[data-f]').forEach(x => x.classList.remove('on'));
   this.classList.add('on');
-  document.getElementById('btnInterchangeable').classList.remove('interchangeable-active');
-  if (currentFilter === 'interchangeable') {
-    document.getElementById('btnInterchangeable').classList.add('interchangeable-active');
-  }
   render();
 }));
-
-// Botón intercambiables específico
-document.getElementById('btnInterchangeable').addEventListener('click', function() {
-  if (!linkedCode) {
-    toast('⚠️ Primero vincula un álbum con el botón 🔗 Vincular otro álbum');
-    return;
-  }
-  currentFilter = 'interchangeable';
-  document.querySelectorAll('.fb[data-f]').forEach(x => x.classList.remove('on'));
-  this.classList.add('on', 'interchangeable-active');
-  render();
-});
 
 // Expandir todo
 document.getElementById('bex').addEventListener('click', () => {
@@ -699,21 +508,12 @@ document.getElementById('brs').addEventListener('click', () => {
   toast('🗑 Reiniciado');
 });
 
+// Exportar / Importar
+document.getElementById('btnExport').addEventListener('click', exportData);
+document.getElementById('btnImport').addEventListener('click', importData);
+
 // Búsqueda
 document.getElementById('qi').addEventListener('input', render);
-document.getElementById('syncCode').addEventListener('click', () => {
-  navigator.clipboard.writeText(syncId);
-  toast('📋 Código copiado');
-});
-document.getElementById('btnSaveCloud').addEventListener('click', saveToCloud);
-document.getElementById('btnLoadCloud').addEventListener('click', () => {
-  document.getElementById('modalLoad').style.display = 'flex';
-});
-document.getElementById('btnLinkAlbum').addEventListener('click', () => {
-  document.getElementById('modalLink').style.display = 'flex';
-});
-
-function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
 let tt;
 function toast(msg) {
@@ -721,13 +521,12 @@ function toast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(tt);
-  tt = setTimeout(() => t.classList.remove('show'), 2500);
+  tt = setTimeout(() => t.classList.remove('show'), 1600);
 }
 
 // Arranque
 loadLocal();
 render();
-initSync();
 </script>
 </body>
 </html>

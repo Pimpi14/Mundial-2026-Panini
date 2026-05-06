@@ -55,6 +55,14 @@
   }
   .sync-btn:hover { border-color:var(--accent); color:var(--accent); }
   .sync-status { display:flex; align-items:center; gap:4px; font-size:.65rem; color:var(--muted); }
+  .linked-badge {
+    background:var(--accent2);
+    color:#fff;
+    border-radius:10px;
+    padding:2px 8px;
+    font-size:.65rem;
+    font-weight:600;
+  }
 
   .pw { background:var(--card); border-bottom:1px solid var(--border); padding:7px 14px; }
   .pbg { background:var(--border); border-radius:99px; height:6px; overflow:hidden; }
@@ -82,6 +90,7 @@
   }
   .fb:hover { border-color:var(--accent); color:var(--accent); }
   .fb.on { background:var(--accent); color:#000; border-color:var(--accent); }
+  .fb.interchangeable-active { background:#10b981; color:#000; border-color:#10b981; }
 
   .grp { font-size:.65rem; font-weight:700; color:var(--muted); letter-spacing:2px; padding:10px 10px 4px; text-transform:uppercase; }
   .leg { display:flex; gap:9px; flex-wrap:wrap; padding:5px 12px; background:var(--surface); border-bottom:1px solid var(--border); font-size:.68rem; color:var(--muted); align-items:center; }
@@ -112,6 +121,23 @@
   .sk.owned::after { content:'✓'; position:absolute; top:2px; right:4px; font-size:.56rem; color:var(--green); font-weight:700; }
   .sk.rep { background:#1a1f0d; border-color:#84cc1688; }
   .sk.rep::after { content:'×2'; position:absolute; top:2px; right:4px; font-size:.54rem; color:#84cc16; font-weight:700; }
+  .sk.interchangeable {
+    border-color: #10b981 !important;
+    border-style: dashed !important;
+    background: #0a2e1a;
+    animation: pulse 1s infinite;
+  }
+  .sk.interchangeable::before {
+    content: '🔄';
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    font-size: .5rem;
+  }
+  @keyframes pulse {
+    0%, 100% { border-color: #10b981; }
+    50% { border-color: #34d399; }
+  }
   .sn { font-family:'Bebas Neue',sans-serif; font-size:.86rem; color:var(--muted); line-height:1; }
   .sk.owned .sn, .sk.rep .sn { color:var(--text); }
   .sl { font-size:.52rem; color:var(--muted); line-height:1.2; word-break:break-word; text-align:center; }
@@ -144,12 +170,8 @@
   <span class="sync-code" id="syncCode" title="Pulsa para copiar">-----</span>
   <button class="sync-btn" id="btnSaveCloud">💾 Guardar en la nube</button>
   <button class="sync-btn" id="btnLoadCloud">📥 Cargar desde nube</button>
-  <span style="color:var(--muted);">|</span>
-  <div class="view-selector">
-    <select id="viewSelect">
-      <option value="self">Mi álbum</option>
-    </select>
-  </div>
+  <button class="sync-btn" id="btnLinkAlbum">🔗 Vincular otro álbum</button>
+  <span id="linkedInfo" style="display:none;" class="linked-badge"></span>
 </div>
 
 <header>
@@ -172,6 +194,7 @@
   <button class="fb" data-f="missing">Me faltan</button>
   <button class="fb" data-f="owned">Tengo</button>
   <button class="fb" data-f="rep">Repetidos</button>
+  <button class="fb" id="btnInterchangeable" data-f="interchangeable">🔄 Intercambiables</button>
   <button class="fb" id="bex">Expandir todo</button>
   <button class="fb" id="brs" style="color:#ef4444;border-color:#ef4444">Reiniciar</button>
 </div>
@@ -181,19 +204,20 @@
   <span><span class="lb" style="background:#0d2e1a;border-color:#22c55e88"></span> Lo tengo</span>
   <span><span class="lb" style="background:#1a1f0d;border-color:#84cc1688"></span> Repetido</span>
   <span><span class="lb" style="background:var(--bg);border-color:var(--border)"></span> No lo tengo</span>
+  <span><span class="lb" style="background:#0a2e1a;border-color:#10b981"></span> 🔄 Intercambiable</span>
 </div>
 
 <main id="mc"></main>
 <div class="toast" id="toast"></div>
 
-<div class="modal-overlay" id="modalLoad" style="display:none;">
+<div class="modal-overlay" id="modalLink" style="display:none;">
   <div class="modal">
-    <h3>📥 Cargar álbum desde la nube</h3>
-    <p style="font-size:.8rem;color:var(--muted);">Introduce el código del álbum:</p>
-    <input type="text" id="loadCode" maxlength="8" placeholder="EJ: ABC123">
+    <h3>🔗 Vincular otro álbum</h3>
+    <p style="font-size:.8rem;color:var(--muted);">Introduce el código del álbum para ver intercambiables:</p>
+    <input type="text" id="linkCode" maxlength="8" placeholder="EJ: ABC123">
     <br>
-    <button onclick="loadFromCloud()">Cargar</button>
-    <button class="cancel" onclick="closeModal('modalLoad')">Cancelar</button>
+    <button onclick="linkAlbum()">Vincular</button>
+    <button class="cancel" onclick="closeModal('modalLink')">Cancelar</button>
   </div>
 </div>
 
@@ -214,7 +238,9 @@ const auth = firebase.auth();
 
 // ================= ESTADO LOCAL =================
 const KEY = 'panini-wc26-local';
-let selfState = {};        // mis cromos locales
+let selfState = {};           // mis cromos locales
+let linkedState = {};         // álbum vinculado (cromos de otra persona)
+let linkedCode = null;        // código del álbum vinculado
 let currentView = 'self';
 let openSections = new Set();
 let currentFilter = 'all';
@@ -228,17 +254,18 @@ function loadLocal() {
       selfState = JSON.parse(saved);
     } catch(e) {}
   }
+  const savedLinked = localStorage.getItem('panini-linked-code');
+  if (savedLinked) {
+    linkedCode = savedLinked;
+    document.getElementById('linkedInfo').textContent = `🔗 Vinculado: ${linkedCode}`;
+    document.getElementById('linkedInfo').style.display = 'inline-block';
+  }
 }
 function saveLocal() { localStorage.setItem(KEY, JSON.stringify(selfState)); }
 const get = (id) => selfState[id] || 0;
 
 // --- FUNCIÓN SET OPTIMIZADA ---
 function set(id, v, element) {
-  if (currentView !== 'self') {
-    toast('⚠️ Solo puedes modificar tu propio álbum');
-    return;
-  }
-  
   // Guardar el cambio en los datos
   if (v === 0) delete selfState[id]; 
   else selfState[id] = v;
@@ -276,7 +303,6 @@ async function initSync() {
   }
   document.getElementById('syncCode').textContent = syncId;
   
-  // Login anónimo para poder usar Firestore
   try {
     await auth.signInAnonymously();
     toast('✅ Conectado a la nube');
@@ -317,6 +343,61 @@ async function loadFromCloud() {
   } catch(e) {
     toast('❌ Error al cargar');
   }
+}
+
+// ================= VINCULAR ÁLBUM (INTERCAMBIABLES) =================
+async function linkAlbum() {
+  const code = document.getElementById('linkCode').value.trim().toUpperCase();
+  if (!code) { toast('⚠️ Introduce un código'); return; }
+  if (code === syncId) { toast('⚠️ No puedes vincular tu propio álbum'); return; }
+  
+  closeModal('modalLink');
+  
+  try {
+    const doc = await db.collection('albums').doc(code).get();
+    if (doc.exists) {
+      linkedState = doc.data().stickers || {};
+      linkedCode = code;
+      localStorage.setItem('panini-linked-code', code);
+      document.getElementById('linkedInfo').textContent = `🔗 Vinculado: ${code}`;
+      document.getElementById('linkedInfo').style.display = 'inline-block';
+      toast(`✅ Álbum ${code} vinculado. Usa "Intercambiables" para ver los cromos que te pueden dar.`);
+      
+      // Si estamos en modo intercambiables, refrescar
+      if (currentFilter === 'interchangeable') {
+        render();
+      }
+    } else {
+      toast('⚠️ Ese álbum aún no tiene datos guardados');
+    }
+  } catch(e) {
+    toast('❌ Error al vincular álbum');
+  }
+}
+
+function unlinkAlbum() {
+  if (!confirm('¿Quieres desvincular el álbum?')) return;
+  linkedState = {};
+  linkedCode = null;
+  localStorage.removeItem('panini-linked-code');
+  document.getElementById('linkedInfo').style.display = 'none';
+  if (currentFilter === 'interchangeable') {
+    currentFilter = 'all';
+    document.querySelectorAll('.fb[data-f]').forEach(x => x.classList.remove('on'));
+    document.getElementById('btnInterchangeable').classList.remove('interchangeable-active');
+    document.querySelector('.fb[data-f="all"]').classList.add('on');
+  }
+  render();
+  toast('🔗 Álbum desvinculado');
+}
+
+// Verificar si un cromo es intercambiable (ellos tienen repetido Y yo no lo tengo)
+function isInterchangeable(stickerId) {
+  if (!linkedCode || !linkedState) return false;
+  const otherValue = linkedState[stickerId] || 0;
+  const myValue = selfState[stickerId] || 0;
+  // Ellos tienen repetido (2) y yo no lo tengo (0)
+  return (otherValue === 2 && myValue === 0);
 }
 
 // ================= FLAGS Y JUGADORES =================
@@ -429,9 +510,16 @@ function render() {
     const sm = !q || team.stickers.some(s => s.label.toLowerCase().includes(q) || s.id.toLowerCase().includes(q));
 
     if (!nm && !sm) return;
+    
+    // Filtros específicos
     if (currentFilter === 'missing' && o === total) return;
     if (currentFilter === 'owned' && o === 0) return;
     if (currentFilter === 'rep' && !team.stickers.some(s => get(s.id) === 2)) return;
+    if (currentFilter === 'interchangeable') {
+      // Verificar si algún cromo de este equipo es intercambiable
+      const hasInterchangeable = team.stickers.some(s => isInterchangeable(s.id));
+      if (!hasInterchangeable) return;
+    }
 
     if (!q && team.grupo && team.grupo !== lastGrp) {
       lastGrp = team.grupo;
@@ -460,16 +548,20 @@ function render() {
     const grid = sec.querySelector('.sg');
     team.stickers.forEach(s => {
       const st = get(s.id);
+      const interchangeable = isInterchangeable(s.id);
       
+      // Filtros
       if (currentFilter === 'missing' && st > 0) return;
       if (currentFilter === 'owned' && st === 0) return;
       if (currentFilter === 'rep' && st !== 2) return;
+      if (currentFilter === 'interchangeable' && !interchangeable) return;
       if (q && !nm && !s.label.toLowerCase().includes(q) && !s.id.toLowerCase().includes(q)) return;
 
       const el = document.createElement('div');
       let classes = 'sk';
       if (st === 1) classes += ' owned';
       else if (st === 2) classes += ' rep';
+      if (interchangeable) classes += ' interchangeable';
       el.className = classes;
       el.dataset.sid = s.id;
       el.innerHTML = `<span class="sn">${s.id}</span>${s.isPhoto ? '<span class="st" style="background:linear-gradient(90deg,#3b82f6,#6366f1)">FOTO</span>' : ''}<span class="sl">${s.label}</span>`;
@@ -495,6 +587,18 @@ function render() {
   });
 
   updateStats();
+  
+  // Mostrar contador de intercambiables si estamos en ese modo
+  if (currentFilter === 'interchangeable' && linkedCode) {
+    const interchangeableCount = ALBUM.reduce((count, team) => {
+      return count + team.stickers.filter(s => isInterchangeable(s.id)).length;
+    }, 0);
+    if (interchangeableCount === 0) {
+      toast('ℹ️ No hay cromos intercambiables de momento');
+    } else {
+      toast(`🔄 Tienes ${interchangeableCount} cromos que te puede dar ${linkedCode}`);
+    }
+  }
 }
 
 function updateTeamHeader(sec) {
@@ -558,8 +662,24 @@ document.querySelectorAll('.fb[data-f]').forEach(b => b.addEventListener('click'
   currentFilter = this.dataset.f;
   document.querySelectorAll('.fb[data-f]').forEach(x => x.classList.remove('on'));
   this.classList.add('on');
+  document.getElementById('btnInterchangeable').classList.remove('interchangeable-active');
+  if (currentFilter === 'interchangeable') {
+    document.getElementById('btnInterchangeable').classList.add('interchangeable-active');
+  }
   render();
 }));
+
+// Botón intercambiables específico
+document.getElementById('btnInterchangeable').addEventListener('click', function() {
+  if (!linkedCode) {
+    toast('⚠️ Primero vincula un álbum con el botón 🔗 Vincular otro álbum');
+    return;
+  }
+  currentFilter = 'interchangeable';
+  document.querySelectorAll('.fb[data-f]').forEach(x => x.classList.remove('on'));
+  this.classList.add('on', 'interchangeable-active');
+  render();
+});
 
 // Expandir todo
 document.getElementById('bex').addEventListener('click', () => {
@@ -589,6 +709,9 @@ document.getElementById('btnSaveCloud').addEventListener('click', saveToCloud);
 document.getElementById('btnLoadCloud').addEventListener('click', () => {
   document.getElementById('modalLoad').style.display = 'flex';
 });
+document.getElementById('btnLinkAlbum').addEventListener('click', () => {
+  document.getElementById('modalLink').style.display = 'flex';
+});
 
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
@@ -598,7 +721,7 @@ function toast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(tt);
-  tt = setTimeout(() => t.classList.remove('show'), 1600);
+  tt = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
 // Arranque

@@ -173,7 +173,6 @@
   </span>
   <span style="color:var(--muted);">| Mi código:</span>
   <span class="sync-code" id="syncCode" title="Pulsa para copiar">-----</span>
-  <button class="sync-btn" id="btnUpload">☁️ Subir a la nube</button>
   <button class="sync-btn" id="btnLink">👥 Vincular otro álbum</button>
   <button class="sync-btn" id="btnUnlink" style="display:none;">🗑️ Quitar vinculación</button>
   <span style="color:var(--muted);">| Viendo:</span>
@@ -261,7 +260,10 @@ let openSections = new Set();
 let currentFilter = 'all';
 let expanded = false;
 let modoQuitar = false;
-let uploadTimeout = null;
+
+// Referencias a listeners para limpiarlos
+let ownUnsubscribe = null;
+let linkedUnsubscribes = {};
 
 function loadLocal() {
   const saved = localStorage.getItem(KEY);
@@ -282,12 +284,11 @@ function set(id, v) {
   if (v === 0) delete selfState[id]; else selfState[id] = v;
   saveLocal();
   state = { ...selfState };
-  // Subir a la nube con debounce (no interfiere con clics)
-  clearTimeout(uploadTimeout);
-  uploadTimeout = setTimeout(() => uploadToCloud(), 2000);
+  // Subir a la nube inmediatamente (sin debounce)
+  uploadToCloud();
 }
 
-// ================= FIREBASE =================
+// ================= FIREBASE (SINCRONIZACIÓN AUTOMÁTICA) =================
 async function initSync() {
   syncId = localStorage.getItem('panini-sync-id');
   if (!syncId) {
@@ -297,6 +298,8 @@ async function initSync() {
   document.getElementById('syncCode').textContent = syncId;
   auth.signInAnonymously().then(() => {
     setSyncStatus(true);
+    // Escuchar cambios en mi propio documento (para recibir desde otros dispositivos)
+    listenOwnCloud();
   }).catch(e => {
     setSyncStatus(false);
   });
@@ -317,6 +320,23 @@ async function uploadToCloud() {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
   } catch(e) {}
+}
+
+function listenOwnCloud() {
+  if (ownUnsubscribe) ownUnsubscribe();
+  ownUnsubscribe = db.collection('albums').doc(syncId)
+    .onSnapshot(doc => {
+      if (doc.exists) {
+        const cloudData = doc.data().stickers || {};
+        // Fusionar con datos locales (la nube tiene prioridad)
+        selfState = { ...selfState, ...cloudData };
+        saveLocal();
+        if (currentView === 'self') state = { ...selfState };
+        render();
+      }
+    }, err => {
+      console.error('Error escuchando mi álbum:', err);
+    });
 }
 
 function setSyncStatus(online) {
@@ -340,6 +360,8 @@ async function linkDevice() {
     localStorage.setItem('panini-linked', JSON.stringify(linked));
   }
   await loadLinkedAlbum(code);
+  // Iniciar escucha en tiempo real para este álbum
+  listenLinkedAlbum(code);
   updateViewSelector();
   if (!compareWith) compareWith = code;
   updateMissingFromOtherButton();
@@ -359,11 +381,34 @@ async function loadLinkedAlbum(code) {
   }
 }
 
+function listenLinkedAlbum(code) {
+  // Limpiar listener anterior si existe
+  if (linkedUnsubscribes[code]) linkedUnsubscribes[code]();
+  linkedUnsubscribes[code] = db.collection('albums').doc(code)
+    .onSnapshot(doc => {
+      if (doc.exists) {
+        linkedStates[code] = doc.data().stickers || {};
+        if (currentView === code) {
+          state = { ...linkedStates[code] };
+          render();
+          updateMatchBadge();
+        }
+      }
+    }, err => {
+      console.error('Error escuchando álbum vinculado:', err);
+    });
+}
+
 function removeLinkedAlbum(code) {
   let linked = JSON.parse(localStorage.getItem('panini-linked')||'[]');
   linked = linked.filter(c => c !== code);
   localStorage.setItem('panini-linked', JSON.stringify(linked));
   delete linkedStates[code];
+  // Cancelar listener
+  if (linkedUnsubscribes[code]) {
+    linkedUnsubscribes[code]();
+    delete linkedUnsubscribes[code];
+  }
   if (currentView === code) {
     currentView = 'self';
     state = { ...selfState };
@@ -792,9 +837,6 @@ document.getElementById('syncCode').addEventListener('click', () => {
 document.getElementById('btnLink').addEventListener('click', () => {
   document.getElementById('modalLink').style.display = 'flex';
 });
-document.getElementById('btnUpload').addEventListener('click', () => {
-  uploadToCloud().then(() => toast('☁️ Álbum subido a la nube'));
-});
 document.getElementById('btnUnlink').addEventListener('click', () => {
   if (currentView !== 'self') removeLinkedAlbum(currentView);
 });
@@ -817,7 +859,10 @@ state = { ...selfState };
 
 (async () => {
   const linked = JSON.parse(localStorage.getItem('panini-linked')||'[]');
-  for (let code of linked) { await loadLinkedAlbum(code); }
+  for (let code of linked) {
+    await loadLinkedAlbum(code);
+    listenLinkedAlbum(code); // Iniciar escucha en tiempo real
+  }
   const keys = Object.keys(linkedStates);
   if (keys.length > 0 && !compareWith) compareWith = keys[0];
   updateViewSelector();

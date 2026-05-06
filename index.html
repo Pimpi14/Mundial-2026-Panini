@@ -493,7 +493,7 @@ function T(code, name, grupo, p1a11, p14a20) {
   return { code, name, flag: getFlagUrl(code), grupo, stickers };
 }
 
-// LISTA OFICIAL DEFINITIVA
+// LISTA OFICIAL DEFINITIVA (completa)
 const ALBUM = [
   { code: 'PANINI', name: 'Panini Logo', flag: null, grupo: 'Intro', stickers: [{ id: '00', label: 'PANINI LOGO' }] },
   { code: 'FWC', name: 'FIFA World Cup', flag: null, grupo: 'Intro', stickers: [
@@ -575,4 +575,245 @@ const ALBUM = [
   T('COL','Colombia','K',['CAMILO VARGAS','DAVID OSPINA','DÁVINSON SÁNCHEZ','YERRY MINA','DANIEL MUÑOZ','JOHAN MOJICA','JHON LUCUMÍ','SANTIAGO ARIAS','JEFFERSON LERMA','KEVIN CASTAÑO','RICHARD RÍOS'],['JAMES RODRÍGUEZ','JUAN FERNANDO QUINTERO','JORGE CARRASCAL','JHON ARIAS','JHON CÓRDOBA','LUIS SUÁREZ','LUIS DÍAZ']),
   // GRUPO L
   T('ENG','England','L',['JORDAN PICKFORD','JOHN STONES','MARC GUÉHI','EZRI KONSA','TRENT ALEXANDER-ARNOLD','REECE JAMES','DAN BURN','JORDAN HENDERSON','DECLAN RICE','JUDE BELLINGHAM','COLE PALMER'],['MORGAN ROGERS','ANTHONY GORDON','PHIL FODEN','BUKAYO SAKA','HARRY KANE','MARCUS RASHFORD','OLLIE WATKINS']),
-  T('CRO','Croatia
+  T('CRO','Croatia','L',['DOMINIK LIVAKOVIĆ','DUŠKO ĆALETA-CAR','JOŠKO GVARDIOL','JOSIP STANIŠIĆ','LUKA VUŠKOVIĆ','JOSIP ŠUTALO','KRISTIJAN JAKIĆ','LUKA MODRIĆ','MATEO KOVAČIĆ','MARTIN BATURINA','LOVRO MAJER'],['MARIO PAŠALIĆ','PETAR SUČIĆ','IVAN PERIŠIĆ','MARCO PAŠALIĆ','ANTE BUDIMIR','ANDREJ KRAMARIĆ','FRANJO IVANOVIĆ']),
+  T('GHA','Ghana','L',['LAWRENCE ATI-ZIGI','TARIQ LAMPTEY','MOHAMMED SALISU','ALIDU SEIDU','ALEXANDER DJIKU','GIDEON MENSAH','CALEB YIRENKYI','ABDUL FATAWU ISSAHAKU','THOMAS PARTEY','SALIS ABDUL SAMED','KAMALDEEN SULEMANA'],['MOHAMMED KUDUS','IÑAKI WILLIAMS','JORDAN AYEW','ANDRÉ AYEW','JOSEPH PAINTSIL','OSMAN BUKARI','ANTOINE SEMENYO']),
+  T('PAN','Panama','L',['ORLANDO MOSQUERA','LUIS MEJÍA','FIDEL ESCOBAR','ANDRÉS ANDRADE','MICHAEL AMIR MURILLO','ERIC DAVIS','JOSÉ CÓRDOBA','CÉSAR BLACKMAN','CRISTIAN MARTÍNEZ','ANÍBAL GODOY','ADALBERTO CARRASQUILLA'],['ÉDGAR BÁRCENAS','CARLOS HARVEY','ISMAEL DÍAZ','JOSÉ FAJARDO','CECILIO WATERMAN','JOSÉ LUIS RODRÍGUEZ','ALBERTO QUINTERO'])
+];
+
+const TOTAL = ALBUM.reduce((a, t) => a + t.stickers.length, 0);
+
+function render() {
+  const mc = document.getElementById('mc');
+  mc.innerHTML = '';
+  const q = document.getElementById('qi').value.toLowerCase().trim();
+  const isViewingSelf = (currentView === 'self');
+  const wished = JSON.parse(localStorage.getItem('panini-wished')||'[]');
+  let lastGrp = '';
+
+  ALBUM.forEach(team => {
+    const o = team.stickers.filter(s => get(s.id, state) >= 1).length;
+    const total = team.stickers.length;
+    const pct = Math.round(o / total * 100);
+    const complete = o === total;
+    const nm = !q || team.name.toLowerCase().includes(q) || team.code.toLowerCase().includes(q);
+    const sm = !q || team.stickers.some(s => s.label.toLowerCase().includes(q) || s.id.toLowerCase().includes(q));
+
+    if (!nm && !sm) return;
+    if (currentFilter === 'missing' && o === total) return;
+    if (currentFilter === 'owned' && o === 0) return;
+    if (currentFilter === 'rep' && !team.stickers.some(s => get(s.id, state) === 2)) return;
+
+    if (!q && team.grupo && team.grupo !== lastGrp) {
+      lastGrp = team.grupo;
+      const gl = document.createElement('div');
+      gl.className = 'grp';
+      gl.textContent = team.grupo === 'Intro' ? '— INTRODUCCIÓN —' : team.grupo === 'Especiales' ? '— SECCIONES ESPECIALES —' : '— GRUPO ' + team.grupo + ' —';
+      mc.appendChild(gl);
+    }
+
+    const sec = document.createElement('div');
+    sec.className = 'ts' + (complete ? ' complete' : '');
+    sec.dataset.code = team.code;
+
+    const flagHTML = team.flag ? `<img src="${team.flag}" class="flag-img" alt="${team.code}" loading="lazy">` : '';
+
+    sec.innerHTML = `<div class="th">
+      <span class="tn">${flagHTML}${team.name}</span>
+      <span class="tc">${team.code}</span>
+      <div class="tpm">
+        <div class="mb"><div class="mf" style="width:${pct}%"></div></div>
+        <span style="color:${complete ? 'var(--green)' : 'var(--muted)'}">${o}/${total}</span>
+      </div>
+      <span class="chev">▼</span>
+    </div><div class="sg"></div>`;
+
+    const grid = sec.querySelector('.sg');
+    team.stickers.forEach(s => {
+      const st = get(s.id, state);
+      const mySt = get(s.id, selfState);
+      let otherSt = 0;
+      if (compareWith && linkedStates[compareWith]) {
+        otherSt = get(s.id, linkedStates[compareWith]);
+      }
+      
+      if (currentFilter === 'interchangeable') {
+        if (isViewingSelf) return;
+        if (!(st === 2 && mySt === 0)) return;
+      }
+      if (currentFilter === 'missingFromOther') {
+        if (!isViewingSelf) return;
+        if (!(otherSt >= 1 && mySt === 0)) return;
+      }
+      if (currentFilter === 'missing' && st > 0) return;
+      if (currentFilter === 'owned' && st === 0) return;
+      if (currentFilter === 'rep' && st !== 2) return;
+      if (q && !nm && !s.label.toLowerCase().includes(q) && !s.id.toLowerCase().includes(q)) return;
+
+      const el = document.createElement('div');
+      let classes = 'sk';
+      if (st === 1) classes += ' owned';
+      else if (st === 2) classes += ' rep';
+      if (wished.includes(s.id)) classes += ' wished';
+      if ((!isViewingSelf && st === 2 && mySt === 0) || (currentFilter === 'missingFromOther' && otherSt >= 1 && mySt === 0)) {
+        classes += ' interchangeable';
+      }
+      el.className = classes;
+      el.dataset.sid = s.id;
+
+      el.innerHTML = `<span class="sn">${s.id}</span>${s.foil ? '<span class="st">FOIL</span>' : s.isPhoto ? '<span class="st" style="background:linear-gradient(90deg,#3b82f6,#6366f1)">FOTO</span>' : ''}<span class="sl">${s.label}</span>`;
+      grid.appendChild(el);
+    });
+
+    const th = sec.querySelector('.th');
+    th.addEventListener('click', () => {
+      if (sec.classList.contains('open')) {
+        sec.classList.remove('open');
+        openSections.delete(team.code);
+      } else {
+        sec.classList.add('open');
+        openSections.add(team.code);
+      }
+    });
+
+    if (expanded || openSections.has(team.code) || (q && sm && !nm)) {
+      sec.classList.add('open');
+    }
+
+    mc.appendChild(sec);
+  });
+
+  updateStats();
+}
+
+// ========== LISTENER GLOBAL (DELEGADO) EN EL MAIN ==========
+document.getElementById('mc').addEventListener('click', function(e) {
+  if (currentView !== 'self') return;
+  const el = e.target.closest('.sk');
+  if (!el) return;
+  const id = el.dataset.sid;
+  if (!id) return;
+
+  if (modoQuitar) {
+    delete selfState[id];
+    el.classList.remove('owned', 'rep');
+    toast('❌ Cromo quitado');
+  } else {
+    const cur = selfState[id] || 0;
+    const next = cur === 0 ? 1 : cur === 1 ? 2 : 2;
+    if (cur === next) return;
+    selfState[id] = next;
+    el.classList.remove('owned', 'rep');
+    if (next === 1) { el.classList.add('owned'); toast('✅ ¡Conseguido!'); }
+    else if (next === 2) { el.classList.add('rep'); toast('🔁 Repetido'); }
+  }
+
+  saveLocal();
+  state = { ...selfState };
+  if (isOnline) pushToCloud();
+  const sec = el.closest('.ts');
+  if (sec) rH(sec);
+  updateStats();
+});
+
+function rH(sec) {
+  const t = ALBUM.find(x => x.code === sec.dataset.code); if (!t) return;
+  const o = t.stickers.filter(s => get(s.id, state) >= 1).length, total = t.stickers.length;
+  sec.classList.toggle('complete', o === total);
+  const mf = sec.querySelector('.mf'), sp = sec.querySelector('.tpm span');
+  if (mf) mf.style.width = Math.round(o / total * 100) + '%';
+  if (sp) { sp.textContent = `${o}/${total}`; sp.style.color = o === total ? 'var(--green)' : 'var(--muted)'; }
+}
+
+function stats() {
+  const st = currentView === 'self' ? selfState : state;
+  let o = 0, r = 0;
+  Object.values(st).forEach(v => { if (v >= 1) o++; if (v === 2) r++; });
+  return { o, r, m: TOTAL - o };
+}
+function updateStats() {
+  const { o, r, m } = stats();
+  document.getElementById('so').textContent = o;
+  document.getElementById('sm').textContent = m;
+  document.getElementById('sr').textContent = r;
+  const pct = Math.round(o / TOTAL * 1000) / 10;
+  document.getElementById('pb').style.width = pct + '%';
+  document.getElementById('pl').textContent = `${o} / ${TOTAL} cromos (${pct}%)`;
+  if (currentView !== 'self') updateMatchBadge();
+}
+
+document.querySelectorAll('.ctrl .fb[data-f]').forEach(b => b.addEventListener('click', function(e) {
+  currentFilter = this.dataset.f;
+  document.querySelectorAll('.ctrl .fb[data-f]').forEach(x => x.classList.remove('on'));
+  this.classList.add('on');
+  render();
+}));
+
+document.getElementById('btnMissingFromOther').addEventListener('click', () => {
+  if (!compareWith) { toast('⚠️ No hay álbum vinculado'); return; }
+  currentFilter = 'missingFromOther';
+  document.querySelectorAll('.ctrl .fb[data-f]').forEach(x => x.classList.remove('on'));
+  document.getElementById('btnMissingFromOther').classList.add('on');
+  render();
+});
+
+document.getElementById('btnQuitar').addEventListener('click', function() {
+  modoQuitar = !modoQuitar;
+  if (modoQuitar) {
+    this.style.background = '#ef4444';
+    this.style.color = '#fff';
+    this.textContent = '🗑 Quitando... (activo)';
+    toast('🗑 Modo quitar ON — pulsa un cromo para quitarlo');
+  } else {
+    this.style.background = '';
+    this.style.color = '#ef4444';
+    this.textContent = '🗑 Modo quitar';
+    toast('✅ Modo quitar OFF');
+  }
+});
+
+document.getElementById('bex').addEventListener('click', () => { 
+  expanded = !expanded; 
+  document.getElementById('bex').textContent = expanded ? 'Colapsar todo' : 'Expandir todo'; 
+  if (expanded) openSections.clear();
+  else openSections.clear();
+  render();
+});
+
+document.getElementById('brs').addEventListener('click', () => { 
+  if(!confirm('¿Seguro que quieres borrar todo tu progreso?')) return; 
+  selfState = {}; saveLocal(); state = {}; 
+  if(isOnline) pushToCloud(); render(); toast('🗑 Reiniciado'); 
+});
+
+document.getElementById('qi').addEventListener('input', render);
+document.getElementById('syncCode').addEventListener('click', () => { navigator.clipboard.writeText(syncId); toast('📋 Código copiado'); });
+document.getElementById('btnLink').addEventListener('click', () => { document.getElementById('modalLink').style.display = 'flex'; });
+
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+// INIT
+loadLocal();
+currentView = 'self';
+state = { ...selfState };
+
+(async () => {
+  const linked = JSON.parse(localStorage.getItem(LINKED_KEY)||'[]');
+  for (let code of linked) { await loadLinkedAlbum(code); }
+  const keys = Object.keys(linkedStates);
+  if (keys.length > 0 && !compareWith) compareWith = keys[0];
+  updateViewSelector();
+  updateMissingFromOtherButton();
+  render();
+})();
+
+initSync();
+
+let tt;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 1600);
+}
+</script>
+</body>
+</html>

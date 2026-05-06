@@ -272,6 +272,7 @@ let isOnline = false;
 let openSections = new Set();
 let currentFilter = 'all';
 let expanded = false;
+let renderTimeout = null;
 
 function loadLocal() {
   const saved = localStorage.getItem(KEY_LOCAL);
@@ -325,16 +326,15 @@ function listenToCloud() {
         selfState = { ...selfState, ...cloudState };
         saveLocal();
         if (currentView === 'self') state = { ...selfState };
-        render();
+        // CAMBIO: debounce para no re-renderizar mientras el usuario hace clics
+        clearTimeout(renderTimeout);
+        renderTimeout = setTimeout(() => render(), 1500);
         setSyncStatus(true);
       } else {
         pushToCloud();
         setSyncStatus(true);
       }
-    }, err => {
-      setSyncStatus(false);
-      document.getElementById('syncText').textContent = 'Error Firestore: ' + err.message;
-    });
+    }, () => setSyncStatus(false));
 }
 
 function pushToCloud() {

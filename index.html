@@ -152,7 +152,6 @@
   .sl { font-size:.52rem; color:var(--muted); line-height:1.2; word-break:break-word; text-align:center; }
   .st { background:linear-gradient(90deg,var(--accent),#f59e0b); color:#000; font-size:.46rem; font-weight:700; border-radius:3px; padding:1px 3px; }
 
-  /* Botón de reset (X) */
   .reset-x {
     position: absolute;
     top: 2px; right: 4px;
@@ -698,24 +697,25 @@ function render() {
         toast('❌ Quitado');
       });
 
-      // Evento para el sticker (clic normal)
+      // Evento para el sticker (clic normal) - CORREGIDO: estado desde clases
       el.addEventListener('click', (e) => {
-        // Si se hizo clic en la X, no hacer nada (ya se manejó)
         if (e.target === resetBtn) return;
         e.stopPropagation();
         if (!isViewingSelf) {
-          if (st === 2 && mySt === 0) {
+          // Leer estado desde las clases para álbumes ajenos
+          const isRep = el.classList.contains('rep');
+          if (isRep && get(s.id, selfState) === 0) {
             toggleWish(s.id);
             el.classList.toggle('wished');
-          } else if (st === 2 && mySt > 0) {
+          } else if (isRep && get(s.id, selfState) > 0) {
             toast('ℹ️ Ya tienes este cromo');
           } else {
             toast('ℹ️ Solo puedes marcar tus propios cromos');
           }
           return;
         }
-        // Lógica de clic: 0 -> 1, 1 -> 2, 2 -> se mantiene (solo se quita con X)
-        const currentVal = get(s.id, selfState);
+        // Leer estado actual desde las clases del elemento (no desde selfState)
+        const currentVal = el.classList.contains('rep') ? 2 : el.classList.contains('owned') ? 1 : 0;
         if (currentVal === 0) {
           applyStateChange(el, s.id, 1);
           toast('✅ ¡Conseguido!');

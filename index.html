@@ -152,6 +152,30 @@
   .sl { font-size:.52rem; color:var(--muted); line-height:1.2; word-break:break-word; text-align:center; }
   .st { background:linear-gradient(90deg,var(--accent),#f59e0b); color:#000; font-size:.46rem; font-weight:700; border-radius:3px; padding:1px 3px; }
 
+  /* Botón de reset (X) */
+  .reset-x {
+    position: absolute;
+    top: 2px; right: 4px;
+    width: 16px; height: 16px;
+    background: var(--red);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2;
+    pointer-events: auto;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  }
+  .sk.owned .reset-x,
+  .sk.rep .reset-x {
+    display: flex;
+  }
+
   .toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(60px); background:var(--card); border:1px solid var(--accent); border-radius:30px; padding:7px 16px; font-size:.78rem; font-weight:600; z-index:9999; transition:transform .3s; pointer-events:none; white-space:nowrap; }
   .toast.show { transform:translateX(-50%) translateY(0); }
 
@@ -660,23 +684,49 @@ function render() {
       }
       el.className = classes;
 
-      el.innerHTML = `<span class="sn">${s.id}</span>${s.foil ? '<span class="st">FOIL</span>' : s.isPhoto ? '<span class="st" style="background:linear-gradient(90deg,#3b82f6,#6366f1)">FOTO</span>' : ''}<span class="sl">${s.label}</span>`;
+      // Incluir botón X y contenido
+      el.innerHTML = `<span class="sn">${s.id}</span>${s.foil ? '<span class="st">FOIL</span>' : s.isPhoto ? '<span class="st" style="background:linear-gradient(90deg,#3b82f6,#6366f1)">FOTO</span>' : ''}<span class="sl">${s.label}</span><span class="reset-x">✕</span>`;
 
-      // NUEVO COMPORTAMIENTO DE CLICS
-      let clickTimer = null;
-      el.addEventListener('click', (e) => {
+      // Evento para la X
+      const resetBtn = el.querySelector('.reset-x');
+      resetBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (clickTimer) {
-          // Doble clic
-          clearTimeout(clickTimer);
-          clickTimer = null;
-          handleDoubleClick(e, el, s, sec, isViewingSelf, mySt);
-        } else {
-          clickTimer = setTimeout(() => {
-            clickTimer = null;
-            handleSingleClick(e, el, s, sec, isViewingSelf, mySt);
-          }, 300);
+        if (!isViewingSelf) return;
+        applyStateChange(el, s.id, 0);
+        rH(sec);
+        updateStats();
+        toast('❌ Quitado');
+      });
+
+      // Evento para el sticker (clic normal)
+      el.addEventListener('click', (e) => {
+        // Si se hizo clic en la X, no hacer nada (ya se manejó)
+        if (e.target === resetBtn) return;
+        e.stopPropagation();
+        if (!isViewingSelf) {
+          if (st === 2 && mySt === 0) {
+            toggleWish(s.id);
+            el.classList.toggle('wished');
+          } else if (st === 2 && mySt > 0) {
+            toast('ℹ️ Ya tienes este cromo');
+          } else {
+            toast('ℹ️ Solo puedes marcar tus propios cromos');
+          }
+          return;
         }
+        // Lógica de clic: 0 -> 1, 1 -> 2, 2 -> se mantiene (solo se quita con X)
+        const currentVal = get(s.id, selfState);
+        if (currentVal === 0) {
+          applyStateChange(el, s.id, 1);
+          toast('✅ ¡Conseguido!');
+        } else if (currentVal === 1) {
+          applyStateChange(el, s.id, 2);
+          toast('🔁 Repetido');
+        } else if (currentVal === 2) {
+          // No pasa nada, solo se quita con X
+        }
+        rH(sec);
+        updateStats();
       });
 
       grid.appendChild(el);
@@ -701,48 +751,6 @@ function render() {
   });
 
   updateStats();
-}
-
-function handleSingleClick(e, el, s, sec, isViewingSelf, mySt) {
-  if (!isViewingSelf) {
-    if (mySt === 2 && get(s.id, selfState) === 0) {
-      toggleWish(s.id);
-      el.classList.toggle('wished');
-    } else if (mySt === 2 && get(s.id, selfState) > 0) {
-      toast('ℹ️ Ya tienes este cromo');
-    } else {
-      toast('ℹ️ Solo puedes marcar tus propios cromos');
-    }
-    return;
-  }
-
-  const currentVal = get(s.id, selfState);
-  let newVal;
-  if (currentVal === 0) {
-    newVal = 1; // Lo tengo
-    toast('✅ ¡Conseguido!');
-  } else if (currentVal === 1) {
-    newVal = 0; // Desmarcar "tengo"
-    toast('❌ Quitado');
-  } else if (currentVal === 2) {
-    newVal = 0; // De repetido a no lo tengo
-    toast('❌ Eliminado');
-  }
-  applyStateChange(el, s.id, newVal);
-  rH(sec);
-  updateStats();
-}
-
-function handleDoubleClick(e, el, s, sec, isViewingSelf, mySt) {
-  if (!isViewingSelf) return; // Solo en álbum propio
-
-  const currentVal = get(s.id, selfState);
-  if (currentVal === 1) {
-    applyStateChange(el, s.id, 2);
-    toast('🔁 Repetido');
-    rH(sec);
-    updateStats();
-  }
 }
 
 function applyStateChange(el, id, newVal) {

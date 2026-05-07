@@ -79,6 +79,8 @@
   .fb.on { background:var(--accent); color:#000; border-color:var(--accent); }
   .fb.pdf-btn { background:#dc2626; border-color:#dc2626; color:#fff; }
   .fb.pdf-btn:hover { background:#b91c1c; border-color:#b91c1c; }
+  .fb.pdf-btn-missing { background:#ea580c; border-color:#ea580c; color:#fff; }
+  .fb.pdf-btn-missing:hover { background:#c2410c; border-color:#c2410c; }
 
   .grp { font-size:.65rem; font-weight:700; color:var(--muted); letter-spacing:2px; padding:10px 10px 4px; text-transform:uppercase; }
   .leg { display:flex; gap:9px; flex-wrap:wrap; padding:5px 12px; background:var(--surface); border-bottom:1px solid var(--border); font-size:.68rem; color:var(--muted); align-items:center; }
@@ -146,7 +148,8 @@
   <span class="local-badge">💾 100% LOCAL</span>
   <button class="fb" id="btnExport">📤 Exportar copia</button>
   <button class="fb" id="btnImport">📥 Importar copia</button>
-  <button class="fb pdf-btn" id="btnPdfRepetidos">📄 Exportar repetidos a PDF</button>
+  <button class="fb pdf-btn" id="btnPdfRepetidos">📄 Exportar repetidos</button>
+  <button class="fb pdf-btn-missing" id="btnPdfFaltantes">📄 Exportar faltantes</button>
 </div>
 
 <header>
@@ -185,9 +188,9 @@
 
 <div class="modal-overlay" id="pdfModal" style="display:none;">
   <div class="modal">
-    <h3>📄 PDF Listo para Compartir</h3>
-    <p>Tu lista de repetidos está lista. Pulsa el botón para compartir o guardar el PDF.</p>
-    <button id="pdfShareBtn">📤 Compartir / Guardar PDF</button>
+    <h3>📄 Archivo Listo</h3>
+    <p>Tu lista está lista. Pulsa el botón para compartir o guardar.</p>
+    <button id="pdfShareBtn">📤 Compartir / Guardar</button>
     <button class="cancel" onclick="closePdfModal()">Cerrar</button>
   </div>
 </div>
@@ -200,6 +203,7 @@ let openSections = new Set();
 let currentFilter = 'all';
 let expanded = false;
 let pendingPdfBlob = null;
+let pendingPdfFilename = '';
 
 function loadLocal() {
   const saved = localStorage.getItem(KEY);
@@ -263,24 +267,44 @@ function importData() {
   input.click();
 }
 
-// ================= EXPORTAR REPETIDOS A PDF (MÉTODO PARA IPHONE) =================
-function exportRepetidosToPDF() {
-  const repetidosIds = Object.keys(selfState).filter(id => selfState[id] === 2);
+// ================= FUNCIÓN GENÉRICA PARA EXPORTAR LISTAS =================
+async function exportStickersToPDF(tipo) {
+  let stickerIds = [];
   
-  if (repetidosIds.length === 0) {
-    toast('ℹ️ No tienes cromos repetidos para exportar');
+  if (tipo === 'repetidos') {
+    // Cromos con estado 2 (repetidos)
+    stickerIds = Object.keys(selfState).filter(id => selfState[id] === 2);
+  } else if (tipo === 'faltantes') {
+    // Cromos que NO están en selfState O tienen estado 0
+    // Necesitamos buscar en TODO el álbum los que NO tenemos
+    stickerIds = [];
+    for (const team of ALBUM) {
+      for (const sticker of team.stickers) {
+        const estado = selfState[sticker.id] || 0;
+        if (estado === 0) {
+          stickerIds.push(sticker.id);
+        }
+      }
+    }
+  }
+  
+  const nombreMostrar = tipo === 'repetidos' ? 'repetidos' : 'que te faltan';
+  const nombreArchivo = tipo === 'repetidos' ? 'repetidos' : 'faltantes';
+  
+  if (stickerIds.length === 0) {
+    toast(`ℹ️ No tienes cromos ${nombreMostrar} para exportar`);
     return;
   }
 
-  toast('📄 Generando PDF...');
+  toast(`📄 Generando lista de cromos ${nombreMostrar}...`);
   
-  // Crear HTML para el PDF
-  let pdfHtml = `
+  // Crear HTML para el archivo
+  let html = `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Panini Mundial 2026 - Repetidos</title>
+      <title>Panini Mundial 2026 - ${nombreArchivo.toUpperCase()}</title>
       <style>
         body {
           font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -327,7 +351,7 @@ function exportRepetidosToPDF() {
         }
         .team-title .count {
           margin-left: auto;
-          background: #22c55e;
+          background: ${tipo === 'repetidos' ? '#e8b84b' : '#ef4444'};
           padding: 2px 8px;
           border-radius: 12px;
           font-size: 12px;
@@ -373,44 +397,50 @@ function exportRepetidosToPDF() {
     <body>
       <div class="header">
         <h1>PANINI <span>MUNDIAL 2026™</span></h1>
-        <p>Lista de cromos repetidos para intercambiar</p>
+        <p>Lista de cromos ${nombreMostrar}</p>
         <p>Generado: ${new Date().toLocaleString()}</p>
-        <p style="color:#22c55e; margin-top:10px;"><strong>Total de repetidos: ${repetidosIds.length}</strong></p>
+        <p style="color:${tipo === 'repetidos' ? '#e8b84b' : '#ef4444'}; margin-top:10px;"><strong>Total de cromos ${nombreMostrar}: ${stickerIds.length}</strong></p>
       </div>
   `;
 
-  // Recorrer el álbum
-  ALBUM.forEach(team => {
-    const teamRepetidos = team.stickers.filter(s => selfState[s.id] === 2);
-    if (teamRepetidos.length === 0) return;
+  // Recorrer el álbum en orden y mostrar solo los stickers que cumplen la condición
+  for (const team of ALBUM) {
+    const teamStickers = [];
+    for (const sticker of team.stickers) {
+      const estado = selfState[sticker.id] || 0;
+      if ((tipo === 'repetidos' && estado === 2) || (tipo === 'faltantes' && estado === 0)) {
+        teamStickers.push(sticker);
+      }
+    }
+    if (teamStickers.length === 0) continue;
 
     const flagUrl = team.flag ? team.flag : '';
-    pdfHtml += `
+    html += `
       <div class="team-section">
         <div class="team-title">
           ${flagUrl ? `<img src="${flagUrl}" style="width:30px;height:20px;object-fit:cover;border-radius:3px;">` : ''}
           <h3>${team.name} (${team.code})</h3>
-          <span class="count">${teamRepetidos.length} repetidos</span>
+          <span class="count">${teamStickers.length}</span>
         </div>
         <div class="stickers-grid">
     `;
     
-    teamRepetidos.forEach(sticker => {
-      pdfHtml += `
+    for (const sticker of teamStickers) {
+      html += `
         <div class="sticker-card">
           <div class="sticker-id">${sticker.id}</div>
           <div class="sticker-label">${sticker.label}</div>
         </div>
       `;
-    });
+    }
     
-    pdfHtml += `
+    html += `
         </div>
       </div>
     `;
-  });
+  }
 
-  pdfHtml += `
+  html += `
       <div class="footer">
         <p>Álbum Digital Panini Mundial 2026</p>
       </div>
@@ -418,95 +448,81 @@ function exportRepetidosToPDF() {
     </html>
   `;
 
-  // Crear un blob del HTML
-  const blob = new Blob([pdfHtml], { type: 'text/html' });
+  const blob = new Blob([html], { type: 'text/html' });
+  pendingPdfBlob = blob;
+  pendingPdfFilename = `panini-${nombreArchivo}-${Date.now()}.html`;
   
-  // Método 1: Usar FileReader para generar un data URL y abrirlo (funciona en iOS)
-  const reader = new FileReader();
-  reader.onloadend = function() {
-    // Crear un iframe o ventana con el HTML
+  const file = new File([blob], pendingPdfFilename, { type: 'text/html' });
+  
+  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        title: `Mis cromos ${nombreMostrar} - Panini`,
+        text: `Lista de cromos ${nombreMostrar} del Mundial 2026`,
+        files: [file]
+      });
+      toast(`✅ Lista de ${nombreMostrar} compartida`);
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        const url = URL.createObjectURL(blob);
+        const newWindow = window.open();
+        if (newWindow) {
+          newWindow.location.href = url;
+          toast(`📄 Lista abierta. Usa "Compartir" para guardar.`);
+        } else {
+          document.getElementById('pdfModal').style.display = 'flex';
+        }
+      }
+    }
+  } else {
+    const url = URL.createObjectURL(blob);
     const newWindow = window.open();
     if (newWindow) {
-      newWindow.document.write(pdfHtml);
-      newWindow.document.close();
-      newWindow.focus();
-      toast('✅ PDF abierto. Usa "Compartir" para guardarlo.');
+      newWindow.location.href = url;
+      toast(`📄 Lista de ${nombreMostrar} abierta. Usa "Compartir" para guardar.`);
     } else {
-      // Si no se pudo abrir ventana, mostrar modal con instrucciones
       document.getElementById('pdfModal').style.display = 'flex';
     }
-  };
-  reader.readAsDataURL(blob);
+  }
+}
+
+function exportRepetidosToPDF() {
+  exportStickersToPDF('repetidos');
+}
+
+function exportFaltantesToPDF() {
+  exportStickersToPDF('faltantes');
 }
 
 function closePdfModal() {
   document.getElementById('pdfModal').style.display = 'none';
 }
 
-// Configurar el botón de compartir del modal
 document.getElementById('pdfShareBtn').addEventListener('click', function() {
-  // Re-generar el PDF para compartir
-  const repetidosIds = Object.keys(selfState).filter(id => selfState[id] === 2);
-  if (repetidosIds.length === 0) {
-    closePdfModal();
-    toast('ℹ️ No hay repetidos');
-    return;
-  }
-  
-  let pdfHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Panini Repetidos</title><style>
-    body { font-family: Arial, sans-serif; padding: 20px; max-width: 1200px; margin: 0 auto; background: white; }
-    .header { text-align: center; border-bottom: 3px solid #e8b84b; padding-bottom: 15px; margin-bottom: 30px; }
-    .header h1 { font-size: 28px; color: #1a2235; margin: 0; }
-    .header h1 span { color: #e8b84b; }
-    .team-section { margin-bottom: 25px; page-break-inside: avoid; }
-    .team-title { background: #1a2235; color: white; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; display: flex; align-items: center; }
-    .team-title h3 { font-size: 16px; margin: 0; }
-    .team-title .count { margin-left: auto; background: #22c55e; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
-    .stickers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; }
-    .sticker-card { border: 1px solid #ddd; border-radius: 6px; padding: 8px 4px; text-align: center; background: #f8f9fa; }
-    .sticker-id { font-family: monospace; font-size: 12px; font-weight: bold; color: #e8b84b; background: #1a2235; display: inline-block; padding: 2px 6px; border-radius: 4px; margin-bottom: 4px; }
-    .sticker-label { font-size: 9px; color: #333; }
-  </style></head><body>`;
-  
-  pdfHtml += `<div class="header"><h1>PANINI <span>MUNDIAL 2026™</span></h1><p>Lista de cromos repetidos</p><p>${new Date().toLocaleString()}</p><p><strong>Total: ${repetidosIds.length}</strong></p></div>`;
-  
-  ALBUM.forEach(team => {
-    const teamRepetidos = team.stickers.filter(s => selfState[s.id] === 2);
-    if (teamRepetidos.length === 0) return;
-    pdfHtml += `<div class="team-section"><div class="team-title"><h3>${team.name} (${team.code})</h3><span class="count">${teamRepetidos.length}</span></div><div class="stickers-grid">`;
-    teamRepetidos.forEach(sticker => {
-      pdfHtml += `<div class="sticker-card"><div class="sticker-id">${sticker.id}</div><div class="sticker-label">${sticker.label}</div></div>`;
-    });
-    pdfHtml += `</div></div>`;
-  });
-  
-  pdfHtml += `</body></html>`;
-  
-  const blob = new Blob([pdfHtml], { type: 'text/html' });
-  const file = new File([blob], `panini-repetidos-${Date.now()}.html`, { type: 'text/html' });
-  
-  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-    navigator.share({
-      title: 'Mis repetidos Panini',
-      text: 'Lista de cromos repetidos para intercambiar',
-      files: [file]
-    }).then(() => {
+  if (pendingPdfBlob) {
+    const file = new File([pendingPdfBlob], pendingPdfFilename, { type: 'text/html' });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({
+        title: 'Mis listas Panini',
+        text: 'Lista de cromos del Mundial 2026',
+        files: [file]
+      }).then(() => {
+        closePdfModal();
+        toast('✅ Archivo compartido');
+      }).catch(() => {
+        closePdfModal();
+        toast('ℹ️ No se pudo compartir');
+      });
+    } else {
+      const url = URL.createObjectURL(pendingPdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = pendingPdfFilename;
+      a.click();
+      URL.revokeObjectURL(url);
       closePdfModal();
-      toast('✅ PDF compartido');
-    }).catch(() => {
-      closePdfModal();
-      toast('ℹ️ No se pudo compartir, pero el archivo está listo');
-    });
-  } else {
-    // Fallback: descarga normal
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `panini-repetidos-${Date.now()}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
-    closePdfModal();
-    toast('✅ Archivo HTML descargado. Ábrelo para ver tus repetidos.');
+      toast('✅ Archivo descargado');
+    }
   }
 });
 
@@ -595,7 +611,7 @@ const ALBUM = [
   T('JOR','Jordan','J',['YAZEED ABULAILA','IHSAN HADDAD','MOHAMMAD ABU HASHISH','YAZAN AL-ARAB','ABDALLAH NASIB','SALEEM OBAID','MOHAMMAD ABUALNADI','IBRAHIM SAADEH','NIZAR AL-RASHDAN','NOOR AL-RAWABDEH','MOHANNAD ABU TAHA'],['AMER JAMOUS','MOUSA AL-TAAMARI','YAZAN AL-NAIMAT','MAHMOUD AL-MARDI','ALI OLWAN','MOHAMMAD ABU ZRAYQ','IBRAHIM SABRA']),
   T('POR','Portugal','K',['DIOGO COSTA','JOSÉ SÁ','RÚBEN DIAS','JOÃO CANCELO','DIOGO DALOT','NUNO MENDES','GONÇALO INÁCIO','BERNARDO SILVA','BRUNO FERNANDES','RÚBEN NEVES','VITINHA'],['JOÃO NEVES','CRISTIANO RONALDO','FRANCISCO TRINCÃO','JOÃO FÉLIX','GONÇALO RAMOS','PEDRO NETO','RAFAEL LEÃO']),
   T('COD','Congo DR','K',['LIONEL MPASI','AARON WAN-BISSAKA','AXEL TUANZEBE','ARTHUR MASUAKU','CHANCEL MBEMBA','JORIS KAYEMBE','CHARLES PICKEL',"NGAL'AYEL MUKAU",'EDO KAYEMBE','SAMUEL MOUTOUSSAMY','NOAH SADIKI'],['THÉO BONGONDA','MESCHAK ELIA','YOANE WISSA','BRIAN CIPENGA','FISTON MAYELE','CÉDRIC BAKAMBU','NATHANAËL MBUKU']),
-  T('UZB','Uzbekistan','K',['OTKIR YUSUPOV','FARRUKH SAYFIEV','SHERZOD NASRULLAEV','OTABEK SHUKUROV','HUSNIDDIN ALIQULOV','RUSTAMJON ASHURMATOV','KHOJIAKBAR ALIJONOV','ABDUKODIR KHUSANOV','ODILJON HAMROBEKOV','JAMSHID ISKANDEROV','AZIZBEK TURGUNBOEV'],['KHOJIMAT ERKINOV','ELDOR SHOMURODOV','OSTON URUNOV','JALOLIDDIN MASHARIPOV','IGOR SERGEEV','ABBOSBEK FAYZULLAEV','FARRUKH TASHKENTOV']),
+  T('UZB','Uzbekistan','K',['UTKIR YUSUPOV','FARRUKH SAYFIEV','SHERZOD NASRULLAEV','UMAR ESHMURODOV','HUSNIDDIN ALIQULOV','RUSTAMJON ASHURMATOV','KHOJIAKBAR ALIJONOV','ABDUKODIR KHUSANOV','ODILJON HAMROBEKOV','OTABEK SHUKUROV','JAMSHID ISKANDEROV'],['AZIZBEK TURGUNBOEV','KHOJIMAT ERKINOV','ELDOR SHOMURODOV','OSTON URUNOV','JALOLIDDIN MASHARIPOV','IGOR SERGEEV','ABBOSBEK FAYZULLAEV']),
   T('COL','Colombia','K',['CAMILO VARGAS','DAVID OSPINA','DÁVINSON SÁNCHEZ','YERRY MINA','DANIEL MUÑOZ','JOHAN MOJICA','JHON LUCUMÍ','SANTIAGO ARIAS','JEFFERSON LERMA','KEVIN CASTAÑO','RICHARD RÍOS'],['JAMES RODRÍGUEZ','JUAN FERNANDO QUINTERO','JORGE CARRASCAL','JHON ARIAS','JHON CÓRDOBA','LUIS SUÁREZ','LUIS DÍAZ']),
   T('ENG','England','L',['JORDAN PICKFORD','JOHN STONES','MARC GUÉHI','EZRI KONSA','TRENT ALEXANDER-ARNOLD','REECE JAMES','DAN BURN','JORDAN HENDERSON','DECLAN RICE','JUDE BELLINGHAM','COLE PALMER'],['MORGAN ROGERS','ANTHONY GORDON','PHIL FODEN','BUKAYO SAKA','HARRY KANE','MARCUS RASHFORD','OLLIE WATKINS']),
   T('CRO','Croatia','L',['DOMINIK LIVAKOVIĆ','DUŠKO ĆALETA-CAR','JOŠKO GVARDIOL','JOSIP STANIŠIĆ','LUKA VUŠKOVIĆ','JOSIP ŠUTALO','KRISTIJAN JAKIĆ','LUKA MODRIĆ','MATEO KOVAČIĆ','MARTIN BATURINA','LOVRO MAJER'],['MARIO PAŠALIĆ','PETAR SUČIĆ','IVAN PERIŠIĆ','MARCO PAŠALIĆ','ANTE BUDIMIR','ANDREJ KRAMARIĆ','FRANJO IVANOVIĆ']),
@@ -755,8 +771,7 @@ document.querySelectorAll('.fb[data-f]').forEach(b => b.addEventListener('click'
 document.getElementById('bex').addEventListener('click', () => {
   expanded = !expanded;
   document.getElementById('bex').textContent = expanded ? 'Colapsar todo' : 'Expandir todo';
-  if (expanded) openSections.clear();
-  else openSections.clear();
+  openSections.clear();
   render();
 });
 
@@ -772,6 +787,7 @@ document.getElementById('brs').addEventListener('click', () => {
 document.getElementById('btnExport').addEventListener('click', exportData);
 document.getElementById('btnImport').addEventListener('click', importData);
 document.getElementById('btnPdfRepetidos').addEventListener('click', exportRepetidosToPDF);
+document.getElementById('btnPdfFaltantes').addEventListener('click', exportFaltantesToPDF);
 
 document.getElementById('qi').addEventListener('input', render);
 

@@ -2,9 +2,11 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Panini Mundial 2026 – Mi Álbum Digital</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+<!-- Librería html2pdf para generar PDF real -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
   :root {
     --bg: #0a0e1a; --surface: #111827; --card: #1a2235; --border: #243050;
@@ -119,22 +121,6 @@
   .toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(60px); background:var(--card); border:1px solid var(--accent); border-radius:30px; padding:7px 16px; font-size:.78rem; font-weight:600; z-index:9999; transition:transform .3s; pointer-events:none; white-space:nowrap; z-index:10000; }
   .toast.show { transform:translateX(-50%) translateY(0); }
 
-  .modal-overlay {
-    position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.9);
-    z-index:20000; display:flex; align-items:center; justify-content:center;
-  }
-  .modal {
-    background:var(--surface); border:2px solid var(--accent); border-radius:var(--r);
-    padding:20px; max-width:350px; width:90%; text-align:center;
-  }
-  .modal h3 { color:var(--accent); margin-bottom:15px; }
-  .modal p { font-size:.85rem; margin-bottom:20px; color:var(--text); }
-  .modal button {
-    background:var(--accent); color:#000; border:none; border-radius:var(--r);
-    padding:10px 20px; font-weight:700; margin:5px; cursor:pointer;
-  }
-  .modal button.cancel { background:var(--card); color:var(--text); border:1px solid var(--border); }
-
   @media (max-width:480px) {
     .logo { font-size:1.15rem; }
     .sg { grid-template-columns:repeat(auto-fill,minmax(50px,1fr)); }
@@ -148,8 +134,8 @@
   <span class="local-badge">💾 100% LOCAL</span>
   <button class="fb" id="btnExport">📤 Exportar copia</button>
   <button class="fb" id="btnImport">📥 Importar copia</button>
-  <button class="fb pdf-btn" id="btnPdfRepetidos">📄 Exportar repetidos</button>
-  <button class="fb pdf-btn-missing" id="btnPdfFaltantes">📄 Exportar faltantes</button>
+  <button class="fb pdf-btn" id="btnPdfRepetidos">📄 Exportar repetidos (PDF)</button>
+  <button class="fb pdf-btn-missing" id="btnPdfFaltantes">📄 Exportar faltantes (PDF)</button>
 </div>
 
 <header>
@@ -186,15 +172,6 @@
 <main id="mc"></main>
 <div class="toast" id="toast"></div>
 
-<div class="modal-overlay" id="pdfModal" style="display:none;">
-  <div class="modal">
-    <h3>📄 Archivo Listo</h3>
-    <p>Tu lista está lista. Pulsa el botón para compartir o guardar.</p>
-    <button id="pdfShareBtn">📤 Compartir / Guardar</button>
-    <button class="cancel" onclick="closePdfModal()">Cerrar</button>
-  </div>
-</div>
-
 <script>
 // ================= ESTADO LOCAL =================
 const KEY = 'panini-wc26-local';
@@ -202,8 +179,6 @@ let selfState = {};
 let openSections = new Set();
 let currentFilter = 'all';
 let expanded = false;
-let pendingPdfBlob = null;
-let pendingPdfFilename = '';
 
 function loadLocal() {
   const saved = localStorage.getItem(KEY);
@@ -267,264 +242,127 @@ function importData() {
   input.click();
 }
 
-// ================= FUNCIÓN GENÉRICA PARA EXPORTAR LISTAS =================
-async function exportStickersToPDF(tipo) {
-  let stickerIds = [];
+// ================= FUNCIÓN PARA GENERAR PDF =================
+function generarPDF(tipo) {
+  // Recopilar stickers según el tipo
+  const stickersPorEquipo = [];
+  let totalStickers = 0;
   
-  if (tipo === 'repetidos') {
-    // Cromos con estado 2 (repetidos)
-    stickerIds = Object.keys(selfState).filter(id => selfState[id] === 2);
-  } else if (tipo === 'faltantes') {
-    // Cromos que NO están en selfState O tienen estado 0
-    // Necesitamos buscar en TODO el álbum los que NO tenemos
-    stickerIds = [];
-    for (const team of ALBUM) {
-      for (const sticker of team.stickers) {
-        const estado = selfState[sticker.id] || 0;
-        if (estado === 0) {
-          stickerIds.push(sticker.id);
-        }
-      }
-    }
-  }
-  
-  const nombreMostrar = tipo === 'repetidos' ? 'repetidos' : 'que te faltan';
-  const nombreArchivo = tipo === 'repetidos' ? 'repetidos' : 'faltantes';
-  
-  if (stickerIds.length === 0) {
-    toast(`ℹ️ No tienes cromos ${nombreMostrar} para exportar`);
-    return;
-  }
-
-  toast(`📄 Generando lista de cromos ${nombreMostrar}...`);
-  
-  // Crear HTML para el archivo
-  let html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>Panini Mundial 2026 - ${nombreArchivo.toUpperCase()}</title>
-      <style>
-        body {
-          font-family: 'Helvetica Neue', Arial, sans-serif;
-          padding: 20px;
-          max-width: 1200px;
-          margin: 0 auto;
-          background: white;
-        }
-        .header {
-          text-align: center;
-          border-bottom: 3px solid #e8b84b;
-          padding-bottom: 15px;
-          margin-bottom: 30px;
-        }
-        .header h1 {
-          font-size: 28px;
-          color: #1a2235;
-          margin: 0;
-        }
-        .header h1 span { color: #e8b84b; }
-        .header p {
-          color: #64748b;
-          font-size: 12px;
-          margin: 5px 0;
-        }
-        .team-section {
-          margin-bottom: 25px;
-          page-break-inside: avoid;
-          break-inside: avoid;
-        }
-        .team-title {
-          background: #1a2235;
-          color: white;
-          padding: 8px 12px;
-          border-radius: 8px;
-          margin-bottom: 10px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        .team-title h3 {
-          font-size: 16px;
-          margin: 0;
-        }
-        .team-title .count {
-          margin-left: auto;
-          background: ${tipo === 'repetidos' ? '#e8b84b' : '#ef4444'};
-          padding: 2px 8px;
-          border-radius: 12px;
-          font-size: 12px;
-        }
-        .stickers-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-          gap: 8px;
-        }
-        .sticker-card {
-          border: 1px solid #ddd;
-          border-radius: 6px;
-          padding: 8px 4px;
-          text-align: center;
-          background: #f8f9fa;
-        }
-        .sticker-id {
-          font-family: monospace;
-          font-size: 12px;
-          font-weight: bold;
-          color: #e8b84b;
-          background: #1a2235;
-          display: inline-block;
-          padding: 2px 6px;
-          border-radius: 4px;
-          margin-bottom: 4px;
-        }
-        .sticker-label {
-          font-size: 9px;
-          color: #333;
-          word-break: break-word;
-        }
-        .footer {
-          text-align: center;
-          margin-top: 30px;
-          padding-top: 15px;
-          border-top: 1px solid #ddd;
-          font-size: 10px;
-          color: #999;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>PANINI <span>MUNDIAL 2026™</span></h1>
-        <p>Lista de cromos ${nombreMostrar}</p>
-        <p>Generado: ${new Date().toLocaleString()}</p>
-        <p style="color:${tipo === 'repetidos' ? '#e8b84b' : '#ef4444'}; margin-top:10px;"><strong>Total de cromos ${nombreMostrar}: ${stickerIds.length}</strong></p>
-      </div>
-  `;
-
-  // Recorrer el álbum en orden y mostrar solo los stickers que cumplen la condición
   for (const team of ALBUM) {
-    const teamStickers = [];
+    const stickersEquipo = [];
     for (const sticker of team.stickers) {
       const estado = selfState[sticker.id] || 0;
-      if ((tipo === 'repetidos' && estado === 2) || (tipo === 'faltantes' && estado === 0)) {
-        teamStickers.push(sticker);
+      let incluir = false;
+      if (tipo === 'repetidos') {
+        incluir = (estado === 2);
+      } else if (tipo === 'faltantes') {
+        incluir = (estado === 0);
+      }
+      if (incluir) {
+        stickersEquipo.push(sticker);
+        totalStickers++;
       }
     }
-    if (teamStickers.length === 0) continue;
-
-    const flagUrl = team.flag ? team.flag : '';
-    html += `
-      <div class="team-section">
-        <div class="team-title">
-          ${flagUrl ? `<img src="${flagUrl}" style="width:30px;height:20px;object-fit:cover;border-radius:3px;">` : ''}
-          <h3>${team.name} (${team.code})</h3>
-          <span class="count">${teamStickers.length}</span>
-        </div>
-        <div class="stickers-grid">
-    `;
-    
-    for (const sticker of teamStickers) {
-      html += `
-        <div class="sticker-card">
-          <div class="sticker-id">${sticker.id}</div>
-          <div class="sticker-label">${sticker.label}</div>
-        </div>
-      `;
-    }
-    
-    html += `
-        </div>
-      </div>
-    `;
-  }
-
-  html += `
-      <div class="footer">
-        <p>Álbum Digital Panini Mundial 2026</p>
-      </div>
-    </body>
-    </html>
-  `;
-
-  const blob = new Blob([html], { type: 'text/html' });
-  pendingPdfBlob = blob;
-  pendingPdfFilename = `panini-${nombreArchivo}-${Date.now()}.html`;
-  
-  const file = new File([blob], pendingPdfFilename, { type: 'text/html' });
-  
-  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({
-        title: `Mis cromos ${nombreMostrar} - Panini`,
-        text: `Lista de cromos ${nombreMostrar} del Mundial 2026`,
-        files: [file]
+    if (stickersEquipo.length > 0) {
+      stickersPorEquipo.push({
+        team: team,
+        stickers: stickersEquipo
       });
-      toast(`✅ Lista de ${nombreMostrar} compartida`);
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        const url = URL.createObjectURL(blob);
-        const newWindow = window.open();
-        if (newWindow) {
-          newWindow.location.href = url;
-          toast(`📄 Lista abierta. Usa "Compartir" para guardar.`);
-        } else {
-          document.getElementById('pdfModal').style.display = 'flex';
-        }
-      }
-    }
-  } else {
-    const url = URL.createObjectURL(blob);
-    const newWindow = window.open();
-    if (newWindow) {
-      newWindow.location.href = url;
-      toast(`📄 Lista de ${nombreMostrar} abierta. Usa "Compartir" para guardar.`);
-    } else {
-      document.getElementById('pdfModal').style.display = 'flex';
     }
   }
+  
+  const nombreTipo = tipo === 'repetidos' ? 'repetidos' : 'que te faltan';
+  const titulo = tipo === 'repetidos' ? 'CROMOS REPETIDOS' : 'CROMOS QUE TE FALTAN';
+  const colorTitulo = tipo === 'repetidos' ? '#e8b84b' : '#ef4444';
+  
+  if (totalStickers === 0) {
+    toast(`ℹ️ No tienes cromos ${nombreTipo} para exportar`);
+    return;
+  }
+  
+  toast(`📄 Generando PDF de cromos ${nombreTipo}...`);
+  
+  // Crear HTML para el PDF
+  const pdfContainer = document.createElement('div');
+  pdfContainer.style.padding = '20px';
+  pdfContainer.style.fontFamily = "'Helvetica Neue', Arial, sans-serif";
+  pdfContainer.style.maxWidth = '1200px';
+  pdfContainer.style.margin = '0 auto';
+  pdfContainer.style.background = 'white';
+  
+  pdfContainer.innerHTML = `
+    <div style="text-align:center; border-bottom:3px solid #e8b84b; padding-bottom:15px; margin-bottom:30px;">
+      <h1 style="font-size:28px; color:#1a2235; margin:0;">PANINI <span style="color:#e8b84b;">MUNDIAL 2026™</span></h1>
+      <p style="color:#64748b; font-size:12px; margin:5px 0;">${titulo}</p>
+      <p style="color:#64748b; font-size:11px; margin:5px 0;">Generado: ${new Date().toLocaleString()}</p>
+      <p style="color:${colorTitulo}; margin-top:10px; font-weight:bold;">Total: ${totalStickers} cromos</p>
+    </div>
+  `;
+  
+  for (const item of stickersPorEquipo) {
+    const team = item.team;
+    const stickers = item.stickers;
+    const flagHtml = team.flag ? `<img src="${team.flag}" style="width:30px; height:20px; object-fit:cover; border-radius:3px;">` : '';
+    
+    const teamDiv = document.createElement('div');
+    teamDiv.style.marginBottom = '25px';
+    teamDiv.style.pageBreakInside = 'avoid';
+    teamDiv.style.breakInside = 'avoid';
+    
+    teamDiv.innerHTML = `
+      <div style="background:#1a2235; color:white; padding:8px 12px; border-radius:8px; margin-bottom:10px; display:flex; align-items:center; gap:10px;">
+        ${flagHtml}
+        <h3 style="font-size:16px; margin:0;">${team.name} (${team.code})</h3>
+        <span style="margin-left:auto; background:#22c55e; padding:2px 8px; border-radius:12px; font-size:12px;">${stickers.length}</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(80px,1fr)); gap:8px;">
+        ${stickers.map(s => `
+          <div style="border:1px solid #ddd; border-radius:6px; padding:8px 4px; text-align:center; background:#f8f9fa;">
+            <div style="font-family:monospace; font-size:12px; font-weight:bold; color:#e8b84b; background:#1a2235; display:inline-block; padding:2px 6px; border-radius:4px; margin-bottom:4px;">${s.id}</div>
+            <div style="font-size:9px; color:#333; word-break:break-word;">${s.label}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    pdfContainer.appendChild(teamDiv);
+  }
+  
+  // Agregar pie de página
+  const footer = document.createElement('div');
+  footer.style.textAlign = 'center';
+  footer.style.marginTop = '30px';
+  footer.style.paddingTop = '15px';
+  footer.style.borderTop = '1px solid #ddd';
+  footer.style.fontSize = '10px';
+  footer.style.color = '#999';
+  footer.innerHTML = '<p>Álbum Digital Panini Mundial 2026</p>';
+  pdfContainer.appendChild(footer);
+  
+  // Configurar opciones de html2pdf
+  const opt = {
+    margin: [0.5, 0.5, 0.5, 0.5],
+    filename: `panini-${tipo}-${new Date().toISOString().slice(0,19)}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, letterRendering: true, useCORS: true },
+    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+  };
+  
+  // Generar y descargar PDF
+  html2pdf().set(opt).from(pdfContainer).save().then(() => {
+    toast(`✅ PDF de ${nombreTipo} generado correctamente`);
+  }).catch(err => {
+    console.error('Error al generar PDF:', err);
+    toast('❌ Error al generar PDF');
+  });
 }
 
 function exportRepetidosToPDF() {
-  exportStickersToPDF('repetidos');
+  generarPDF('repetidos');
 }
 
 function exportFaltantesToPDF() {
-  exportStickersToPDF('faltantes');
+  generarPDF('faltantes');
 }
-
-function closePdfModal() {
-  document.getElementById('pdfModal').style.display = 'none';
-}
-
-document.getElementById('pdfShareBtn').addEventListener('click', function() {
-  if (pendingPdfBlob) {
-    const file = new File([pendingPdfBlob], pendingPdfFilename, { type: 'text/html' });
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({
-        title: 'Mis listas Panini',
-        text: 'Lista de cromos del Mundial 2026',
-        files: [file]
-      }).then(() => {
-        closePdfModal();
-        toast('✅ Archivo compartido');
-      }).catch(() => {
-        closePdfModal();
-        toast('ℹ️ No se pudo compartir');
-      });
-    } else {
-      const url = URL.createObjectURL(pendingPdfBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = pendingPdfFilename;
-      a.click();
-      URL.revokeObjectURL(url);
-      closePdfModal();
-      toast('✅ Archivo descargado');
-    }
-  }
-});
 
 // ================= FLAGS Y JUGADORES =================
 const FLAGS = {

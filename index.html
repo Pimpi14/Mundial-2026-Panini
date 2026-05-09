@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Panini Mundial 2026 – Mi Álbum Digital</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
-<!-- Librería html2pdf para generar PDF real -->
+<!-- Librerías -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root {
     --bg: #0a0e1a; --surface: #111827; --card: #1a2235; --border: #243050;
@@ -25,7 +27,7 @@
     font-family:'Bebas Neue',sans-serif; font-size:1.6rem; letter-spacing:2px;
     background:linear-gradient(90deg,var(--accent),#fff 60%,var(--accent));
     -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-    background-clip:text; line-height:1; flex-shrink:0;
+    background-clip:text; line-height:1; flex-shrink:0; cursor:pointer;
   }
   .logo span { background:linear-gradient(90deg,var(--accent2),var(--accent)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
   .hs { display:flex; gap:7px; flex-wrap:wrap; flex:1; justify-content:flex-end; align-items:center; }
@@ -37,20 +39,32 @@
   .dot { width:7px; height:7px; border-radius:50%; }
   .dg { background:var(--green); } .dr { background:var(--red); } .da { background:var(--accent); }
 
+  .nav-tabs {
+    background:var(--surface); border-bottom:1px solid var(--border);
+    padding:0 14px; display:flex; gap:0; overflow-x:auto;
+    position:sticky; top:56px; z-index:95;
+  }
+  .nav-tab {
+    background:none; border:none; color:var(--muted); font-family:'Outfit',sans-serif;
+    font-size:.78rem; font-weight:600; padding:10px 16px; cursor:pointer;
+    border-bottom:2px solid transparent; transition:all .2s; white-space:nowrap;
+    display:flex; align-items:center; gap:6px;
+  }
+  .nav-tab:hover { color:var(--text); }
+  .nav-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+
   .info-bar {
     background:var(--surface); border-bottom:1px solid var(--border);
     padding:6px 14px; display:flex; align-items:center; gap:8px;
-    font-size:.72rem; flex-wrap:wrap;
-    justify-content:space-between;
+    font-size:.72rem; flex-wrap:wrap; justify-content:space-between;
   }
   .local-badge {
-    background:var(--card);
-    border:1px solid var(--accent);
-    border-radius:15px;
-    padding:3px 10px;
-    font-weight:700;
-    color:var(--accent);
-    font-size:.7rem;
+    background:var(--card); border:1px solid var(--accent);
+    border-radius:15px; padding:3px 10px;
+    font-weight:700; color:var(--accent); font-size:.7rem;
   }
 
   .pw { background:var(--card); border-bottom:1px solid var(--border); padding:7px 14px; }
@@ -61,7 +75,7 @@
   .ctrl {
     padding:9px 12px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;
     background:var(--surface); border-bottom:1px solid var(--border);
-    position:sticky; top:120px; z-index:90;
+    position:sticky; top:108px; z-index:90;
   }
   .sw { flex:1; min-width:140px; position:relative; }
   .sw input {
@@ -121,25 +135,87 @@
   .toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(60px); background:var(--card); border:1px solid var(--accent); border-radius:30px; padding:7px 16px; font-size:.78rem; font-weight:600; z-index:9999; transition:transform .3s; pointer-events:none; white-space:nowrap; }
   .toast.show { transform:translateX(-50%) translateY(0); }
 
+  /* Estilos para la sección de cruce */
+  .cross-section { max-width:800px; margin:0 auto; padding:16px; }
+  .cross-box {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--r); padding:20px; margin-bottom:16px;
+  }
+  .cross-box h3 { font-size:.9rem; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .cross-box .sub { font-size:.7rem; color:var(--muted); margin-bottom:12px; }
+  
+  .upload-zone {
+    border:2px dashed var(--border); border-radius:var(--r);
+    padding:24px 16px; text-align:center; cursor:pointer;
+    transition:all .2s; background:var(--bg); margin-bottom:8px;
+  }
+  .upload-zone:hover { border-color:var(--accent); background:var(--card); }
+  .upload-zone.loaded { border-color:var(--green); background:var(--card); }
+  .upload-zone .uz-icon { font-size:2rem; margin-bottom:6px; }
+  .upload-zone p { font-size:.72rem; color:var(--muted); }
+  .upload-zone .uz-name { font-size:.7rem; color:var(--accent); margin-top:6px; font-weight:600; }
+  .upload-zone .uz-count { font-size:.65rem; color:var(--green); margin-top:2px; }
+
+  input[type="file"] { display:none; }
+
+  .cross-results { margin-top:16px; }
+  .cr-header {
+    background:linear-gradient(135deg,var(--accent2),var(--accent));
+    color:#000; padding:12px 16px; border-radius:var(--r);
+    font-weight:700; font-size:.85rem; text-align:center; margin-bottom:12px;
+  }
+  .cr-team {
+    background:var(--bg); border:1px solid var(--border); border-radius:var(--r);
+    margin-bottom:6px; overflow:hidden;
+  }
+  .cr-team-h {
+    background:var(--card); padding:8px 12px; display:flex;
+    align-items:center; gap:8px; cursor:pointer;
+  }
+  .cr-team-h .ctn { font-weight:700; font-size:.78rem; flex:1; }
+  .cr-team-h .ctc { font-size:.62rem; color:var(--muted); }
+  .cr-team-h .ctb { background:var(--green); color:#000; padding:2px 6px; border-radius:10px; font-size:.6rem; font-weight:700; }
+  .cr-stickers {
+    display:none; grid-template-columns:repeat(auto-fill,minmax(65px,1fr));
+    gap:5px; padding:8px; background:var(--surface);
+  }
+  .cr-team.open .cr-stickers { display:grid; }
+  .cr-sticker {
+    border:1px solid var(--green); border-radius:6px; padding:5px 3px;
+    text-align:center; background:#0d2e1a;
+  }
+  .cr-sticker .crsn { font-family:'Bebas Neue',sans-serif; font-size:.7rem; color:var(--accent); }
+  .cr-sticker .crsl { font-size:.48rem; color:var(--muted); word-break:break-word; }
+
+  .overlay {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.9); z-index:10000;
+    display:flex; flex-direction:column; align-items:center;
+    padding:20px; overflow-y:auto;
+  }
+  .overlay-btn {
+    background:var(--card); color:var(--text); border:1px solid var(--border);
+    padding:10px 20px; border-radius:25px; font-family:'Outfit',sans-serif;
+    font-size:14px; font-weight:600; cursor:pointer; margin:4px;
+    transition:all .2s;
+  }
+  .overlay-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .overlay-btn.primary { background:var(--accent2); border-color:var(--accent2); color:#fff; }
+  .overlay-btn.success { background:var(--green); border-color:var(--green); color:#fff; }
+  .overlay-btn.danger { background:var(--red); border-color:var(--red); color:#fff; }
+
   @media (max-width:480px) {
     .logo { font-size:1.15rem; }
     .sg { grid-template-columns:repeat(auto-fill,minmax(50px,1fr)); }
     .flag-img { width:20px; height:14px; }
+    .nav-tab { font-size:.7rem; padding:8px 10px; }
   }
 </style>
 </head>
 <body>
 
-<div class="info-bar">
-  <span class="local-badge">💾 100% LOCAL</span>
-  <button class="fb" id="btnExport">📤 Exportar copia</button>
-  <button class="fb" id="btnImport">📥 Importar copia</button>
-  <button class="fb pdf-btn" id="btnPdfRepetidos">📄 Exportar repetidos (PDF)</button>
-  <button class="fb pdf-btn-missing" id="btnPdfFaltantes">📄 Exportar faltantes (PDF)</button>
-</div>
-
 <header>
-  <div class="logo">PANINI <span>MUNDIAL 2026™</span></div>
+  <div class="logo" id="logoHome">PANINI <span>MUNDIAL 2026™</span></div>
   <div class="hs">
     <div class="sp"><span class="dot dg"></span><span id="so">0</span> tengo</div>
     <div class="sp"><span class="dot dr"></span><span id="sm">992</span> faltan</div>
@@ -147,32 +223,95 @@
   </div>
 </header>
 
-<div class="pw">
-  <div class="pbg"><div class="pbf" id="pb" style="width:0%"></div></div>
-  <div class="pl" id="pl">0 / 992 cromos (0%)</div>
+<div class="nav-tabs" id="navTabs">
+  <button class="nav-tab active" data-tab="album">📒 Mi Álbum</button>
+  <button class="nav-tab" data-tab="cross">🔀 Cruzar Cromos</button>
 </div>
 
-<div class="ctrl">
-  <div class="sw"><span class="si">🔍</span><input type="text" id="qi" placeholder="Buscar equipo o jugador…"></div>
-  <button class="fb on" data-f="all">Todos</button>
-  <button class="fb" data-f="missing">Me faltan</button>
-  <button class="fb" data-f="owned">Tengo</button>
-  <button class="fb" data-f="rep">Repetidos</button>
-  <button class="fb" id="bex">Expandir todo</button>
-  <button class="fb" id="brs" style="color:#ef4444;border-color:#ef4444">Reiniciar</button>
+<div id="tabAlbum" class="tab-content active">
+  <div class="info-bar">
+    <span class="local-badge">💾 100% LOCAL</span>
+    <button class="fb" id="btnExport">📤 Exportar copia</button>
+    <button class="fb" id="btnImport">📥 Importar copia</button>
+    <button class="fb pdf-btn" id="btnPdfRepetidos">📄 Exportar repetidos (PDF)</button>
+    <button class="fb pdf-btn-missing" id="btnPdfFaltantes">📄 Exportar faltantes (PDF)</button>
+  </div>
+
+  <div class="pw">
+    <div class="pbg"><div class="pbf" id="pb" style="width:0%"></div></div>
+    <div class="pl" id="pl">0 / 992 cromos (0%)</div>
+  </div>
+
+  <div class="ctrl">
+    <div class="sw"><span class="si">🔍</span><input type="text" id="qi" placeholder="Buscar equipo o jugador…"></div>
+    <button class="fb on" data-f="all">Todos</button>
+    <button class="fb" data-f="missing">Me faltan</button>
+    <button class="fb" data-f="owned">Tengo</button>
+    <button class="fb" data-f="rep">Repetidos</button>
+    <button class="fb" id="bex">Expandir todo</button>
+    <button class="fb" id="brs" style="color:#ef4444;border-color:#ef4444">Reiniciar</button>
+  </div>
+
+  <div class="leg">
+    <strong>🔄 Clic cíclico:</strong> No tengo → Lo tengo → Repetido → No tengo &nbsp;|&nbsp;
+    <span><span class="lb" style="background:#0d2e1a;border-color:#22c55e88"></span> Lo tengo</span>
+    <span><span class="lb" style="background:#1a1f0d;border-color:#84cc1688"></span> Repetido</span>
+    <span><span class="lb" style="background:var(--bg);border-color:var(--border)"></span> No lo tengo</span>
+  </div>
+
+  <main id="mc"></main>
 </div>
 
-<div class="leg">
-  <strong>🔄 Clic cíclico:</strong> No tengo → Lo tengo → Repetido → No tengo &nbsp;|&nbsp;
-  <span><span class="lb" style="background:#0d2e1a;border-color:#22c55e88"></span> Lo tengo</span>
-  <span><span class="lb" style="background:#1a1f0d;border-color:#84cc1688"></span> Repetido</span>
-  <span><span class="lb" style="background:var(--bg);border-color:var(--border)"></span> No lo tengo</span>
+<div id="tabCross" class="tab-content">
+  <div class="cross-section">
+    <div class="cross-box">
+      <h3>🔴 1. Carga tu PDF de FALTANTES</h3>
+      <p class="sub">Exporta desde "📄 Exportar faltantes (PDF)" y súbelo aquí</p>
+      <div class="upload-zone" id="zoneFalt" onclick="document.getElementById('fileFalt').click()">
+        <div class="uz-icon">📄</div>
+        <strong style="font-size:.8rem;">Selecciona PDF de FALTANTES</strong>
+        <p>o arrastra aquí</p>
+        <div class="uz-name" id="nameFalt"></div>
+        <div class="uz-count" id="countFalt"></div>
+      </div>
+      <input type="file" id="fileFalt" accept=".pdf">
+    </div>
+
+    <div class="cross-box">
+      <h3>🟡 2. Carga el PDF de REPETIDOS de tu amigo</h3>
+      <p class="sub">El PDF que te ha pasado con sus cromos repetidos</p>
+      <div class="upload-zone" id="zoneRep" onclick="document.getElementById('fileRep').click()">
+        <div class="uz-icon">📄</div>
+        <strong style="font-size:.8rem;">Selecciona PDF de REPETIDOS</strong>
+        <p>o arrastra aquí</p>
+        <div class="uz-name" id="nameRep"></div>
+        <div class="uz-count" id="countRep"></div>
+      </div>
+      <input type="file" id="fileRep" accept=".pdf">
+    </div>
+
+    <div style="text-align:center;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+      <button class="fb" id="btnCross" disabled style="font-size:.85rem;padding:10px 20px;background:var(--accent2);border-color:var(--accent2);color:#fff;">
+        🔄 CRUZAR CROMOS
+      </button>
+      <button class="fb" id="btnCrossClear" style="font-size:.85rem;padding:10px 20px;color:var(--red);border-color:var(--red);">
+        🗑 Limpiar
+      </button>
+    </div>
+
+    <div class="cross-results" id="crossResults" style="display:none;">
+      <div class="cr-header" id="crossHeader"></div>
+      <div id="crossList"></div>
+    </div>
+  </div>
 </div>
 
-<main id="mc"></main>
 <div class="toast" id="toast"></div>
 
 <script>
+// ================= CONFIGURACIÓN PDF.js =================
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
 // ================= ESTADO LOCAL =================
 const KEY = 'panini-wc26-local';
 let selfState = {};
@@ -183,9 +322,7 @@ let expanded = false;
 function loadLocal() {
   const saved = localStorage.getItem(KEY);
   if (saved) {
-    try {
-      selfState = JSON.parse(saved);
-    } catch(e) {}
+    try { selfState = JSON.parse(saved); } catch(e) {}
   }
 }
 function saveLocal() { localStorage.setItem(KEY, JSON.stringify(selfState)); }
@@ -233,161 +370,138 @@ function importData() {
         saveLocal();
         render();
         toast('📥 Álbum importado correctamente');
-      } catch(err) {
-        toast('❌ Error al importar');
-      }
+      } catch(err) { toast('❌ Error al importar'); }
     };
     reader.readAsText(file);
   };
   input.click();
 }
 
-// ================= FUNCIÓN PARA GENERAR PDF (COMPATIBLE CON iOS) =================
+// ================= FUNCIÓN PARA GENERAR PDF (USANDO jspdf DIRECTAMENTE) =================
 function generarPDF(tipo) {
-  const { jsPDF } = window.jspdf;
-  
-  const stickersPorEquipo = [];
-  let totalStickers = 0;
-  
-  for (const team of ALBUM) {
-    const stickersEquipo = [];
-    for (const sticker of team.stickers) {
-      const estado = selfState[sticker.id] || 0;
-      const incluir = tipo === 'repetidos' ? estado === 2 : estado === 0;
-      if (incluir) {
-        stickersEquipo.push(sticker);
-        totalStickers++;
-      }
-    }
-    if (stickersEquipo.length > 0) {
-      stickersPorEquipo.push({ team, stickers: stickersEquipo });
-    }
-  }
-  
-  const nombreTipo = tipo === 'repetidos' ? 'repetidos' : 'que te faltan';
-  
-  if (totalStickers === 0) {
-    toast('ℹ️ No tienes cromos ' + nombreTipo + ' para exportar');
-    return;
-  }
-  
-  toast('📄 Generando PDF...');
-  
   try {
-    const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-    const pageW = 210;
-    const pageH = 297;
-    const margin = 12;
-    const colW = (pageW - margin * 2) / 5;
+    const stickersPorEquipo = [];
+    let totalStickers = 0;
+    
+    for (const team of ALBUM) {
+      const stickersEquipo = [];
+      for (const sticker of team.stickers) {
+        const estado = selfState[sticker.id] || 0;
+        let incluir = false;
+        if (tipo === 'repetidos') incluir = (estado === 2);
+        else if (tipo === 'faltantes') incluir = (estado === 0);
+        if (incluir) { stickersEquipo.push(sticker); totalStickers++; }
+      }
+      if (stickersEquipo.length > 0) stickersPorEquipo.push({ team, stickers: stickersEquipo });
+    }
+    
+    const nombreTipo = tipo === 'repetidos' ? 'repetidos' : 'que te faltan';
+    const titulo = tipo === 'repetidos' ? 'CROMOS REPETIDOS' : 'CROMOS QUE TE FALTAN';
+    
+    if (totalStickers === 0) { toast(`ℹ️ No tienes cromos ${nombreTipo} para exportar`); return; }
+    
+    toast(`📄 Generando PDF de cromos ${nombreTipo}...`);
+    
+    // Usar window.jspdf que viene de la librería jspdf.umd.min.js
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
     let y = margin;
     
-    // Título
-    doc.setFillColor(26, 34, 53);
-    doc.rect(0, 0, pageW, 20, 'F');
-    doc.setTextColor(232, 184, 75);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PANINI MUNDIAL 2026', margin, 13);
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9);
-    doc.text((tipo === 'repetidos' ? 'CROMOS REPETIDOS' : 'CROMOS QUE TE FALTAN') + ' — Total: ' + totalStickers, margin, 18);
-    y = 26;
+    function checkPageBreak(h) { if (y + h > pageHeight - margin) { doc.addPage(); y = margin; } }
+    
+    doc.setFontSize(22); doc.setTextColor(26, 34, 53);
+    doc.text('PANINI MUNDIAL 2026', pageWidth / 2, y, { align: 'center' }); y += 10;
+    doc.setFontSize(16); doc.text(titulo, pageWidth / 2, y, { align: 'center' }); y += 8;
+    doc.setFontSize(10); doc.setTextColor(100, 116, 139);
+    doc.text(`Generado: ${new Date().toLocaleString()}`, pageWidth / 2, y, { align: 'center' }); y += 6;
+    doc.setFontSize(12); doc.setTextColor(26, 34, 53);
+    doc.text(`Total: ${totalStickers} cromos`, pageWidth / 2, y, { align: 'center' }); y += 10;
+    doc.setDrawColor(232, 184, 75); doc.setLineWidth(0.5);
+    doc.line(margin, y, pageWidth - margin, y); y += 10;
     
     for (const item of stickersPorEquipo) {
-      const team = item.team;
-      const stickers = item.stickers;
+      const team = item.team, stickers = item.stickers;
+      checkPageBreak(25);
+      doc.setFillColor(26, 34, 53); doc.rect(margin, y, pageWidth - 2 * margin, 12, 'F');
+      doc.setFontSize(12); doc.setTextColor(255, 255, 255);
+      doc.text(`${team.name} (${team.code}) - ${stickers.length} cromos`, margin + 5, y + 8); y += 15;
       
-      // Calcular altura necesaria para este equipo
-      const rows = Math.ceil(stickers.length / 5);
-      const neededH = 8 + rows * 14 + 4;
+      const stickersPerRow = 4;
+      const stickerWidth = (pageWidth - 2 * margin - (stickersPerRow - 1) * 5) / stickersPerRow;
+      const stickerHeight = 22;
       
-      if (y + neededH > pageH - margin) {
-        doc.addPage();
-        y = margin;
-      }
-      
-      // Cabecera del equipo
-      doc.setFillColor(26, 34, 53);
-      doc.rect(margin, y, pageW - margin * 2, 7, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text(team.name + ' (' + team.code + ')  —  ' + stickers.length + ' cromos', margin + 2, y + 5);
-      y += 9;
-      
-      // Cromos en grid de 5 columnas
-      let col = 0;
-      for (const s of stickers) {
-        const x = margin + col * colW;
-        
-        // Caja
-        doc.setFillColor(248, 249, 250);
-        doc.setDrawColor(200, 200, 200);
-        doc.rect(x, y, colW - 1, 13, 'FD');
-        
-        // ID del cromo
-        doc.setFillColor(26, 34, 53);
-        doc.rect(x + 1, y + 1, colW - 3, 4, 'F');
-        doc.setTextColor(232, 184, 75);
-        doc.setFontSize(6);
-        doc.setFont('helvetica', 'bold');
-        doc.text(s.id, x + (colW - 2) / 2, y + 4, { align: 'center' });
-        
-        // Nombre
-        doc.setTextColor(50, 50, 50);
-        doc.setFontSize(5);
-        doc.setFont('helvetica', 'normal');
-        const label = s.label.length > 14 ? s.label.slice(0, 13) + '.' : s.label;
-        doc.text(label, x + (colW - 2) / 2, y + 10, { align: 'center' });
-        
-        col++;
-        if (col >= 5) {
-          col = 0;
-          y += 14;
+      for (let i = 0; i < stickers.length; i += stickersPerRow) {
+        checkPageBreak(stickerHeight + 5);
+        const rowStickers = stickers.slice(i, i + stickersPerRow);
+        for (let j = 0; j < rowStickers.length; j++) {
+          const s = rowStickers[j], x = margin + j * (stickerWidth + 5);
+          doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.3);
+          doc.rect(x, y, stickerWidth, stickerHeight);
+          doc.setFillColor(26, 34, 53); doc.rect(x + 2, y + 2, stickerWidth - 4, 6, 'F');
+          doc.setFontSize(7); doc.setTextColor(232, 184, 75);
+          doc.text(s.id, x + stickerWidth / 2, y + 6, { align: 'center' });
+          doc.setFontSize(5); doc.setTextColor(51, 51, 51);
+          const labelLines = doc.splitTextToSize(s.label, stickerWidth - 6);
+          let labelY = y + 11;
+          for (const line of labelLines) {
+            if (labelY < y + stickerHeight - 1) { doc.text(line, x + stickerWidth / 2, labelY, { align: 'center' }); labelY += 3; }
+          }
         }
+        y += stickerHeight + 4;
       }
-      if (col > 0) y += 14;
-      y += 3;
+      y += 5;
     }
     
-    // Footer
-    const totalPages = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= totalPages; i++) {
-      doc.setPage(i);
-      doc.setTextColor(150, 150, 150);
-      doc.setFontSize(7);
-      doc.text('Álbum Digital Panini Mundial 2026 — Pág. ' + i + '/' + totalPages, pageW / 2, pageH - 5, { align: 'center' });
-    }
+    if (y > pageHeight - 30) { doc.addPage(); y = margin; }
+    doc.setFontSize(8); doc.setTextColor(150, 150, 150);
+    doc.text('Álbum Digital Panini Mundial 2026', pageWidth / 2, pageHeight - 10, { align: 'center' });
     
-    const filename = 'panini-' + tipo + '-' + new Date().toISOString().slice(0,10) + '.pdf';
-    
-    // iOS: usar blob + URL para abrir en nueva pestaña
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const pdfBlob = doc.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    const filename = `panini-${tipo}-${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     
     if (isIOS) {
-      const blob = doc.output('blob');
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      toast('📱 PDF abierto. Pulsa el icono compartir para guardarlo');
+      const overlay = document.createElement('div'); overlay.className = 'overlay';
+      overlay.innerHTML = `
+        <div style="text-align:center;color:white;margin-bottom:20px;">
+          <h2>PDF Generado</h2><p style="color:#94a3b8;">${totalStickers} cromos ${nombreTipo}</p>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;justify-content:center;">
+          <button class="overlay-btn primary" id="iosView">👁️ Ver PDF</button>
+          <button class="overlay-btn success" id="iosShare">📤 Compartir</button>
+          <button class="overlay-btn danger" id="iosClose">✕ Cerrar</button>
+        </div>
+        <iframe id="iosFrame" style="width:100%;height:70vh;border:none;background:white;border-radius:10px;display:none;"></iframe>
+      `;
+      document.body.appendChild(overlay);
+      document.getElementById('iosClose').onclick = () => { URL.revokeObjectURL(pdfUrl); document.body.removeChild(overlay); };
+      document.getElementById('iosView').onclick = () => { const f = document.getElementById('iosFrame'); f.src = pdfUrl; f.style.display = 'block'; };
+      document.getElementById('iosShare').onclick = async () => {
+        try {
+          if (navigator.share) {
+            await navigator.share({ title: 'Panini Mundial 2026 - ' + titulo, text: `Cromos ${nombreTipo}`, files: [new File([pdfBlob], filename, { type: 'application/pdf' })] });
+            toast('✅ PDF compartido');
+          } else { window.open(pdfUrl, '_blank'); }
+        } catch (err) { window.open(pdfUrl, '_blank'); }
+      };
     } else {
-      doc.save(filename);
-      toast('✅ PDF generado: ' + filename);
+      const a = document.createElement('a'); a.href = pdfUrl; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(pdfUrl);
+      toast(`✅ PDF de ${nombreTipo} generado`);
     }
-    
-  } catch(err) {
-    console.error(err);
-    toast('❌ Error: ' + err.message);
+  } catch (error) { 
+    console.error('Error al generar PDF:', error); 
+    toast('❌ Error al generar PDF: ' + error.message); 
   }
 }
 
-function exportRepetidosToPDF() {
-  generarPDF('repetidos');
-}
-
-function exportFaltantesToPDF() {
-  generarPDF('faltantes');
-}
+function exportRepetidosToPDF() { generarPDF('repetidos'); }
+function exportFaltantesToPDF() { generarPDF('faltantes'); }
 
 // ================= FLAGS Y JUGADORES =================
 const FLAGS = {
@@ -483,6 +597,8 @@ const ALBUM = [
 ];
 
 const TOTAL = ALBUM.reduce((a, t) => a + t.stickers.length, 0);
+const stickerMap = {};
+ALBUM.forEach(team => { team.stickers.forEach(s => { stickerMap[s.id] = { team, sticker: s }; }); });
 
 function render() {
   const mc = document.getElementById('mc');
@@ -491,7 +607,6 @@ function render() {
   let lastGrp = '';
 
   ALBUM.forEach(team => {
-    // Cuenta cromos con estado >= 1 (tengo + repetidos)
     const o = team.stickers.filter(s => get(s.id) >= 1).length;
     const total = team.stickers.length;
     const pct = Math.round(o / total * 100);
@@ -506,8 +621,7 @@ function render() {
 
     if (!q && team.grupo && team.grupo !== lastGrp) {
       lastGrp = team.grupo;
-      const gl = document.createElement('div');
-      gl.className = 'grp';
+      const gl = document.createElement('div'); gl.className = 'grp';
       gl.textContent = team.grupo === 'Intro' ? '— INTRODUCCIÓN —' : team.grupo === 'Especiales' ? '— SECCIONES ESPECIALES —' : '— GRUPO ' + team.grupo + ' —';
       mc.appendChild(gl);
     }
@@ -531,7 +645,6 @@ function render() {
     const grid = sec.querySelector('.sg');
     team.stickers.forEach(s => {
       const st = get(s.id);
-      
       if (currentFilter === 'missing' && st > 0) return;
       if (currentFilter === 'owned' && st === 0) return;
       if (currentFilter === 'rep' && st !== 2) return;
@@ -549,73 +662,44 @@ function render() {
 
     const th = sec.querySelector('.th');
     th.addEventListener('click', () => {
-      if (sec.classList.contains('open')) {
-        sec.classList.remove('open');
-        openSections.delete(team.code);
-      } else {
-        sec.classList.add('open');
-        openSections.add(team.code);
-      }
+      if (sec.classList.contains('open')) { sec.classList.remove('open'); openSections.delete(team.code); }
+      else { sec.classList.add('open'); openSections.add(team.code); }
     });
 
-    if (expanded || openSections.has(team.code) || (q && sm && !nm)) {
-      sec.classList.add('open');
-    }
-
+    if (expanded || openSections.has(team.code) || (q && sm && !nm)) sec.classList.add('open');
     mc.appendChild(sec);
   });
-
   updateStats();
 }
 
 function updateTeamHeader(sec) {
   const t = ALBUM.find(x => x.code === sec.dataset.code);
   if (!t) return;
-  // Cuenta cromos con estado >= 1 (tengo + repetidos)
   const o = t.stickers.filter(s => get(s.id) >= 1).length;
   const total = t.stickers.length;
   sec.classList.toggle('complete', o === total);
-  const mf = sec.querySelector('.mf');
-  const sp = sec.querySelector('.tpm span');
+  const mf = sec.querySelector('.mf'), sp = sec.querySelector('.tpm span');
   if (mf) mf.style.width = Math.round(o / total * 100) + '%';
-  if (sp) {
-    sp.textContent = `${o}/${total}`;
-    sp.style.color = o === total ? 'var(--green)' : 'var(--muted)';
-  }
+  if (sp) { sp.textContent = `${o}/${total}`; sp.style.color = o === total ? 'var(--green)' : 'var(--muted)'; }
 }
 
-// --- MANEJADOR DE CLICS CON CICLO DE 3 ---
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('mc').addEventListener('click', function(e) {
     const el = e.target.closest('.sk');
     if (!el) return;
     const id = el.dataset.sid;
-
     const cur = selfState[id] || 0;
     let next;
-
-    if (cur === 0) {
-      next = 1;
-      toast('✅ ¡Añadido!');
-    } else if (cur === 1) {
-      next = 2;
-      toast('🔁 Repetido');
-    } else {
-      next = 0;
-      toast('❌ Quitado');
-    }
-
+    if (cur === 0) { next = 1; toast('✅ ¡Añadido!'); }
+    else if (cur === 1) { next = 2; toast('🔁 Repetido'); }
+    else { next = 0; toast('❌ Quitado'); }
     set(id, next, el);
   });
 });
 
-// Estadísticas que cuentan correctamente
 function stats() {
   let o = 0, r = 0;
-  Object.values(selfState).forEach(v => { 
-    if (v >= 1) o++;      // Cuenta como "tengo" si está marcado (valor 1 o 2)
-    if (v === 2) r++;      // Cuenta repetidos por separado
-  });
+  Object.values(selfState).forEach(v => { if (v >= 1) o++; if (v === 2) r++; });
   return { o, r, m: TOTAL - o };
 }
 function updateStats() {
@@ -628,7 +712,21 @@ function updateStats() {
   document.getElementById('pl').textContent = `${o} / ${TOTAL} cromos (${pct}%)`;
 }
 
-// Filtros
+// ================= NAVEGACIÓN POR PESTAÑAS =================
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1)).classList.add('active');
+  });
+});
+
+document.getElementById('logoHome').addEventListener('click', () => {
+  document.querySelector('.nav-tab[data-tab="album"]').click();
+});
+
+// ================= FILTROS Y BOTONES DEL ÁLBUM =================
 document.querySelectorAll('.fb[data-f]').forEach(b => b.addEventListener('click', function() {
   currentFilter = this.dataset.f;
   document.querySelectorAll('.fb[data-f]').forEach(x => x.classList.remove('on'));
@@ -636,7 +734,6 @@ document.querySelectorAll('.fb[data-f]').forEach(b => b.addEventListener('click'
   render();
 }));
 
-// Expandir todo
 document.getElementById('bex').addEventListener('click', () => {
   expanded = !expanded;
   document.getElementById('bex').textContent = expanded ? 'Colapsar todo' : 'Expandir todo';
@@ -644,7 +741,6 @@ document.getElementById('bex').addEventListener('click', () => {
   render();
 });
 
-// Reiniciar
 document.getElementById('brs').addEventListener('click', () => {
   if (!confirm('¿Seguro que quieres borrar todo tu progreso?')) return;
   selfState = {};
@@ -657,9 +753,138 @@ document.getElementById('btnExport').addEventListener('click', exportData);
 document.getElementById('btnImport').addEventListener('click', importData);
 document.getElementById('btnPdfRepetidos').addEventListener('click', exportRepetidosToPDF);
 document.getElementById('btnPdfFaltantes').addEventListener('click', exportFaltantesToPDF);
-
 document.getElementById('qi').addEventListener('input', render);
 
+// ================= FUNCIONALIDAD DE CRUCE =================
+let crossFaltantes = null;
+let crossRepetidos = null;
+
+async function extractIDsFromPDF(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const allIDs = new Set();
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    for (const item of textContent.items) {
+      const text = item.str.trim();
+      if (/^[A-Z0-9]{2,}\d{1,2}$/.test(text)) allIDs.add(text);
+    }
+  }
+  return Array.from(allIDs);
+}
+
+async function handleCrossFile(input, tipo) {
+  const file = input.files[0];
+  if (!file) return;
+  
+  const zoneEl = document.getElementById('zone' + (tipo === 'falt' ? 'Falt' : 'Rep'));
+  const nameEl = document.getElementById('name' + (tipo === 'falt' ? 'Falt' : 'Rep'));
+  const countEl = document.getElementById('count' + (tipo === 'falt' ? 'Falt' : 'Rep'));
+  
+  nameEl.textContent = '📄 ' + file.name;
+  countEl.textContent = '⏳ Extrayendo...';
+  
+  try {
+    const ids = await extractIDsFromPDF(file);
+    if (tipo === 'falt') crossFaltantes = ids;
+    else crossRepetidos = ids;
+    countEl.textContent = `✅ ${ids.length} cromos encontrados`;
+    zoneEl.classList.add('loaded');
+    updateCrossButton();
+    toast(`✅ ${ids.length} cromos extraídos`);
+  } catch (err) {
+    countEl.textContent = '❌ Error al leer el PDF';
+    toast('❌ Error al procesar el PDF');
+  }
+}
+
+function updateCrossButton() {
+  const btn = document.getElementById('btnCross');
+  btn.disabled = !(crossFaltantes && crossRepetidos);
+  if (btn.disabled) btn.textContent = '🔄 CRUZAR CROMOS';
+  else btn.textContent = `🔄 CRUZAR (${crossFaltantes.length} faltan × ${crossRepetidos.length} reps)`;
+}
+
+function doCross() {
+  if (!crossFaltantes || !crossRepetidos) return;
+  
+  const setFalt = new Set(crossFaltantes);
+  const matches = crossRepetidos.filter(id => setFalt.has(id));
+  
+  const matchesByTeam = {};
+  for (const id of matches) {
+    const info = stickerMap[id];
+    if (info) {
+      if (!matchesByTeam[info.team.code]) matchesByTeam[info.team.code] = { team: info.team, stickers: [] };
+      matchesByTeam[info.team.code].stickers.push(info.sticker);
+    }
+  }
+  
+  document.getElementById('crossResults').style.display = 'block';
+  document.getElementById('crossHeader').textContent = 
+    `🎯 ${matches.length} CROMOS QUE TE SIRVEN (de ${crossRepetidos.length} repetidos)`;
+  
+  const listEl = document.getElementById('crossList');
+  listEl.innerHTML = '';
+  
+  if (matches.length === 0) {
+    listEl.innerHTML = `<p style="text-align:center;color:var(--muted);padding:20px;">😔 Ninguno te sirve</p>`;
+    return;
+  }
+  
+  const sorted = Object.values(matchesByTeam).sort((a, b) => a.team.name.localeCompare(b.team.name));
+  
+  for (const item of sorted) {
+    const team = item.team, stickers = item.stickers;
+    const div = document.createElement('div'); div.className = 'cr-team';
+    div.innerHTML = `
+      <div class="cr-team-h"><span class="ctn">${team.name}</span><span class="ctc">${team.code}</span><span class="ctb">${stickers.length}</span></div>
+      <div class="cr-stickers">${stickers.map(s => `<div class="cr-sticker"><span class="crsn">${s.id}</span><span class="crsl">${s.label}</span></div>`).join('')}</div>
+    `;
+    div.querySelector('.cr-team-h').onclick = () => div.classList.toggle('open');
+    listEl.appendChild(div);
+  }
+  
+  document.getElementById('crossResults').scrollIntoView({ behavior: 'smooth' });
+  toast(`🎯 ${matches.length} cromos que te sirven`);
+}
+
+document.getElementById('fileFalt').addEventListener('change', function() { handleCrossFile(this, 'falt'); });
+document.getElementById('fileRep').addEventListener('change', function() { handleCrossFile(this, 'rep'); });
+
+['Falt', 'Rep'].forEach(sufix => {
+  const zone = document.getElementById('zone' + sufix);
+  const input = document.getElementById('file' + sufix);
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = 'var(--accent)'; });
+  zone.addEventListener('dragleave', () => { zone.style.borderColor = zone.classList.contains('loaded') ? 'var(--green)' : 'var(--border)'; });
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.style.borderColor = zone.classList.contains('loaded') ? 'var(--green)' : 'var(--border)';
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') { input.files = e.dataTransfer.files; handleCrossFile(input, sufix.toLowerCase()); }
+    else toast('❌ Solo archivos PDF');
+  });
+});
+
+document.getElementById('btnCross').addEventListener('click', doCross);
+document.getElementById('btnCrossClear').addEventListener('click', () => {
+  crossFaltantes = null; crossRepetidos = null;
+  document.getElementById('crossResults').style.display = 'none';
+  document.getElementById('nameFalt').textContent = '';
+  document.getElementById('nameRep').textContent = '';
+  document.getElementById('countFalt').textContent = '';
+  document.getElementById('countRep').textContent = '';
+  document.getElementById('zoneFalt').classList.remove('loaded');
+  document.getElementById('zoneRep').classList.remove('loaded');
+  document.getElementById('fileFalt').value = '';
+  document.getElementById('fileRep').value = '';
+  document.getElementById('btnCross').disabled = true;
+  document.getElementById('btnCross').textContent = '🔄 CRUZAR CROMOS';
+  toast('🗑 Datos de cruce limpiados');
+});
+
+// ================= TOAST =================
 let tt;
 function toast(msg) {
   const t = document.getElementById('toast');

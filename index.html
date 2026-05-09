@@ -242,7 +242,7 @@ function importData() {
   input.click();
 }
 
-// ================= FUNCIÓN PARA GENERAR PDF (COMPATIBLE CON iOS) =================
+// ================= FUNCIÓN PARA GENERAR PDF (COMPATIBLE CON iOS - CORREGIDA) =================
 function generarPDF(tipo) {
   try {
     // Recopilar stickers según el tipo
@@ -300,12 +300,24 @@ function generarPDF(tipo) {
       overflow-y: auto;
     `;
     
+    // Contenedor para botones sticky
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = `
+      position: sticky;
+      top: 10px;
+      z-index: 10001;
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    `;
+    overlay.appendChild(buttonContainer);
+    
     // Agregar botón de cerrar
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '✕ Cerrar';
     closeBtn.style.cssText = `
-      position: sticky;
-      top: 10px;
       background: #ef4444;
       color: white;
       border: none;
@@ -314,21 +326,17 @@ function generarPDF(tipo) {
       font-size: 16px;
       font-weight: bold;
       cursor: pointer;
-      z-index: 10001;
-      margin-bottom: 10px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.3);
     `;
     closeBtn.onclick = () => {
       document.body.removeChild(overlay);
     };
-    overlay.appendChild(closeBtn);
+    buttonContainer.appendChild(closeBtn);
     
     // Agregar botón de compartir/descargar
     const actionBtn = document.createElement('button');
     actionBtn.textContent = '💾 Guardar / Compartir PDF';
     actionBtn.style.cssText = `
-      position: sticky;
-      top: 10px;
       background: #22c55e;
       color: white;
       border: none;
@@ -337,11 +345,9 @@ function generarPDF(tipo) {
       font-size: 16px;
       font-weight: bold;
       cursor: pointer;
-      z-index: 10001;
-      margin-bottom: 10px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.3);
     `;
-    overlay.appendChild(actionBtn);
+    buttonContainer.appendChild(actionBtn);
     
     const pdfContainer = document.createElement('div');
     pdfContainer.style.cssText = `
@@ -407,9 +413,10 @@ function generarPDF(tipo) {
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     
     // Configurar opciones de html2pdf
+    const filename = `panini-${tipo}-${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`;
     const opt = {
       margin: [5, 5, 5, 5],
-      filename: `panini-${tipo}-${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`,
+      filename: filename,
       image: { type: 'jpeg', quality: 0.95 },
       html2canvas: { 
         scale: 2, 
@@ -422,27 +429,44 @@ function generarPDF(tipo) {
     
     // Función para generar y mostrar el PDF
     const generarYMostrarPDF = () => {
-      html2pdf().set(opt).from(pdfContainer).toPdf().output('blob').then(blob => {
-        // Crear URL del blob
-        const pdfUrl = URL.createObjectURL(blob);
+      // Usar output('datauristring') para iOS que funciona mejor
+      html2pdf().set(opt).from(pdfContainer).toPdf().output('datauristring').then(dataUri => {
         
         if (isIOS) {
-          // En iOS: abrir en nueva ventana para que el usuario pueda compartir/guardar
+          // En iOS: Usar un iframe para mostrar el PDF con opción de compartir
           actionBtn.textContent = '📤 Abrir PDF para compartir';
-          actionBtn.onclick = () => {
-            window.open(pdfUrl, '_blank');
-          };
           actionBtn.style.background = '#3b82f6';
+          
+          actionBtn.onclick = () => {
+            // Crear un iframe para mostrar el PDF
+            const iframe = document.createElement('iframe');
+            iframe.src = dataUri;
+            iframe.style.cssText = `
+              width: 100%;
+              height: 80vh;
+              border: none;
+              margin: 20px 0;
+            `;
+            
+            // Limpiar el contenido anterior y mostrar el iframe
+            pdfContainer.innerHTML = '';
+            pdfContainer.appendChild(iframe);
+            
+            // Ocultar el botón de acción ya que el PDF se muestra en el iframe
+            actionBtn.style.display = 'none';
+            
+            toast('📱 PDF abierto. Usa las opciones de tu navegador para compartir');
+          };
+          
           toast('📱 Pulsa el botón azul para abrir y compartir el PDF');
         } else {
           // En otros dispositivos: descargar directamente
           const a = document.createElement('a');
-          a.href = pdfUrl;
-          a.download = opt.filename;
+          a.href = dataUri;
+          a.download = filename;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
-          URL.revokeObjectURL(pdfUrl);
           document.body.removeChild(overlay);
           toast(`✅ PDF de ${nombreTipo} generado correctamente`);
         }

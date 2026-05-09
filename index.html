@@ -242,7 +242,7 @@ function importData() {
   input.click();
 }
 
-// ================= FUNCIÓN PARA GENERAR PDF (CORREGIDA) =================
+// ================= FUNCIÓN PARA GENERAR PDF (COMPATIBLE CON iOS) =================
 function generarPDF(tipo) {
   try {
     // Recopilar stickers según el tipo
@@ -293,27 +293,72 @@ function generarPDF(tipo) {
       background: rgba(0,0,0,0.8);
       z-index: 10000;
       display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding: 20px;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 10px;
       overflow-y: auto;
     `;
     
+    // Agregar botón de cerrar
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕ Cerrar';
+    closeBtn.style.cssText = `
+      position: sticky;
+      top: 10px;
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 10001;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    `;
+    closeBtn.onclick = () => {
+      document.body.removeChild(overlay);
+    };
+    overlay.appendChild(closeBtn);
+    
+    // Agregar botón de compartir/descargar
+    const actionBtn = document.createElement('button');
+    actionBtn.textContent = '💾 Guardar / Compartir PDF';
+    actionBtn.style.cssText = `
+      position: sticky;
+      top: 10px;
+      background: #22c55e;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 10001;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    `;
+    overlay.appendChild(actionBtn);
+    
     const pdfContainer = document.createElement('div');
     pdfContainer.style.cssText = `
-      width: 210mm;
+      width: 100%;
+      max-width: 800px;
       min-height: 297mm;
-      padding: 20mm 15mm;
+      padding: 20px;
       font-family: Arial, sans-serif;
       background-color: white;
       color: black;
       box-shadow: 0 0 20px rgba(0,0,0,0.5);
-      margin: 20px auto;
+      margin: 10px auto;
     `;
     
     let htmlContent = `
       <div style="text-align:center; border-bottom:3px solid #e8b84b; padding-bottom:15px; margin-bottom:30px;">
-        <h1 style="font-size:28px; color:#1a2235; margin:0;">PANINI <span style="color:#e8b84b;">MUNDIAL 2026™</span></h1>
+        <h1 style="font-size:24px; color:#1a2235; margin:0;">PANINI <span style="color:#e8b84b;">MUNDIAL 2026™</span></h1>
         <p style="color:#64748b; font-size:12px; margin:5px 0;">${titulo}</p>
         <p style="color:#64748b; font-size:11px; margin:5px 0;">Generado: ${new Date().toLocaleString()}</p>
         <p style="color:#1a2235; margin-top:10px; font-weight:bold; font-size:16px;">Total: ${totalStickers} cromos</p>
@@ -325,18 +370,18 @@ function generarPDF(tipo) {
       const stickers = item.stickers;
       
       htmlContent += `
-        <div style="margin-bottom:25px; page-break-inside:avoid;">
+        <div style="margin-bottom:20px; page-break-inside:avoid;">
           <div style="background:#1a2235; color:white; padding:8px 12px; border-radius:8px; margin-bottom:10px;">
-            <h3 style="font-size:16px; margin:0;">${team.name} (${team.code}) - ${stickers.length} cromos</h3>
+            <h3 style="font-size:14px; margin:0;">${team.name} (${team.code}) - ${stickers.length} cromos</h3>
           </div>
-          <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(70px,1fr)); gap:6px;">
       `;
       
       for (const s of stickers) {
         htmlContent += `
-          <div style="border:1px solid #ddd; border-radius:6px; padding:8px; text-align:center; background:#f8f9fa;">
-            <div style="font-size:11px; font-weight:bold; color:#e8b84b; background:#1a2235; padding:2px 6px; border-radius:4px; margin-bottom:4px;">${s.id}</div>
-            <div style="font-size:9px; color:#333;">${s.label}</div>
+          <div style="border:1px solid #ddd; border-radius:6px; padding:6px; text-align:center; background:#f8f9fa;">
+            <div style="font-size:10px; font-weight:bold; color:#e8b84b; background:#1a2235; padding:2px 6px; border-radius:4px; margin-bottom:4px;">${s.id}</div>
+            <div style="font-size:8px; color:#333;">${s.label}</div>
           </div>
         `;
       }
@@ -357,11 +402,15 @@ function generarPDF(tipo) {
     overlay.appendChild(pdfContainer);
     document.body.appendChild(overlay);
     
+    // Detectar si es iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    
     // Configurar opciones de html2pdf
     const opt = {
-      margin: [0, 0, 0, 0],
+      margin: [5, 5, 5, 5],
       filename: `panini-${tipo}-${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
+      image: { type: 'jpeg', quality: 0.95 },
       html2canvas: { 
         scale: 2, 
         useCORS: true, 
@@ -371,18 +420,40 @@ function generarPDF(tipo) {
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
     
-    // Pequeña pausa para asegurar que el DOM se renderice
-    setTimeout(() => {
-      // Generar y descargar PDF
-      html2pdf().set(opt).from(pdfContainer).save().then(() => {
-        document.body.removeChild(overlay);
-        toast(`✅ PDF de ${nombreTipo} generado correctamente`);
+    // Función para generar y mostrar el PDF
+    const generarYMostrarPDF = () => {
+      html2pdf().set(opt).from(pdfContainer).toPdf().output('blob').then(blob => {
+        // Crear URL del blob
+        const pdfUrl = URL.createObjectURL(blob);
+        
+        if (isIOS) {
+          // En iOS: abrir en nueva ventana para que el usuario pueda compartir/guardar
+          actionBtn.textContent = '📤 Abrir PDF para compartir';
+          actionBtn.onclick = () => {
+            window.open(pdfUrl, '_blank');
+          };
+          actionBtn.style.background = '#3b82f6';
+          toast('📱 Pulsa el botón azul para abrir y compartir el PDF');
+        } else {
+          // En otros dispositivos: descargar directamente
+          const a = document.createElement('a');
+          a.href = pdfUrl;
+          a.download = opt.filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(pdfUrl);
+          document.body.removeChild(overlay);
+          toast(`✅ PDF de ${nombreTipo} generado correctamente`);
+        }
       }).catch(err => {
         console.error('Error al generar PDF:', err);
-        document.body.removeChild(overlay);
         toast('❌ Error al generar PDF');
       });
-    }, 500);
+    };
+    
+    // Pequeña pausa para asegurar que el DOM se renderice
+    setTimeout(generarYMostrarPDF, 300);
     
   } catch (error) {
     console.error('Error en generarPDF:', error);
